@@ -1,0 +1,249 @@
+================================================================================
+Escaped at sign
+================================================================================
+<p>Email: user@@example.com</p>
+--------------------------------------------------------------------------------
+
+(compilation_unit
+  (element
+    (start_tag
+      (element_name))
+    (text)
+    (escaped_at)
+    (text)
+    (text)
+    (text)
+    (end_tag
+      (element_name))))
+
+================================================================================
+Email address as literal text
+================================================================================
+<a href="mailto:Support@contoso.com">Support@contoso.com</a>
+--------------------------------------------------------------------------------
+
+(compilation_unit
+  (element
+    (start_tag
+      (element_name)
+      (attribute
+        (attribute_name)
+        (attribute_value
+          (quoted_attribute_value))))
+    (text
+      (text))
+    (end_tag
+      (element_name))))
+
+================================================================================
+Razor implicit expression - simple identifier
+================================================================================
+<p>@name</p>
+--------------------------------------------------------------------------------
+
+(compilation_unit
+  (element
+    (start_tag
+      (element_name))
+    (razor_implicit_expression
+      (identifier))
+    (end_tag
+      (element_name))))
+
+================================================================================
+Razor implicit expression - member access
+================================================================================
+<p>@Model.Name</p>
+--------------------------------------------------------------------------------
+
+(compilation_unit
+  (element
+    (start_tag
+      (element_name))
+    (razor_implicit_expression
+      (identifier)
+      (identifier))
+    (end_tag
+      (element_name))))
+
+================================================================================
+Razor implicit expression - method call
+================================================================================
+<p>@DateTime.Now.ToString()</p>
+--------------------------------------------------------------------------------
+
+(compilation_unit
+  (element
+    (start_tag
+      (element_name))
+    (razor_implicit_expression
+      (identifier)
+      (identifier)
+      (identifier)
+      (argument_list))
+    (end_tag
+      (element_name))))
+
+================================================================================
+Razor explicit expression
+================================================================================
+<p>@(name + " World")</p>
+--------------------------------------------------------------------------------
+
+(compilation_unit
+  (element
+    (start_tag
+      (element_name))
+    (razor_explicit_expression
+      (binary_expression
+        (identifier)
+        (string_literal
+          (string_literal_content))))
+    (end_tag
+      (element_name))))
+
+================================================================================
+Razor explicit expression with method chain
+================================================================================
+<p>@(items.Where(x => x.Active).Count())</p>
+--------------------------------------------------------------------------------
+
+(compilation_unit
+  (element
+    (start_tag
+      (element_name))
+    (razor_explicit_expression
+      (invocation_expression
+        (member_access_expression
+          (invocation_expression
+            (member_access_expression
+              (identifier)
+              (identifier))
+            (argument_list
+              (argument
+                (lambda_expression
+                  (implicit_parameter)
+                  (member_access_expression
+                    (identifier)
+                    (identifier))))))
+          (identifier))
+        (argument_list)))
+    (end_tag
+      (element_name))))
+
+================================================================================
+Razor implicit expression with indexer
+================================================================================
+<p>@items[0]</p>
+--------------------------------------------------------------------------------
+
+(compilation_unit
+  (element
+    (start_tag
+      (element_name))
+    (razor_implicit_expression
+      (identifier)
+      (integer_literal))
+    (end_tag
+      (element_name))))
+
+================================================================================
+Razor implicit expression with null-conditional
+================================================================================
+<p>@user?.Name</p>
+--------------------------------------------------------------------------------
+
+(compilation_unit
+  (element
+    (start_tag
+      (element_name))
+    (razor_implicit_expression
+      (identifier)
+      (identifier))
+    (end_tag
+      (element_name))))
+
+================================================================================
+Generic method requires explicit expression
+================================================================================
+<p>@(GetValue<int>())</p>
+--------------------------------------------------------------------------------
+
+(compilation_unit
+  (element
+    (start_tag
+      (element_name))
+    (razor_explicit_expression
+      (invocation_expression
+        (generic_name
+          (identifier)
+          (type_argument_list
+            (predefined_type)))
+        (argument_list)))
+    (end_tag
+      (element_name))))
+
+================================================================================
+Ternary in explicit expression
+================================================================================
+<p>@(isActive ? "Active" : "Inactive")</p>
+--------------------------------------------------------------------------------
+
+(compilation_unit
+  (element
+    (start_tag
+      (element_name))
+    (razor_explicit_expression
+      (conditional_expression
+        (identifier)
+        (string_literal
+          (string_literal_content))
+        (string_literal
+          (string_literal_content))))
+    (end_tag
+      (element_name))))
+
+================================================================================
+Razor implicit expression - true literal
+================================================================================
+<p>@true</p>
+--------------------------------------------------------------------------------
+
+(compilation_unit
+  (element
+    (start_tag
+      (element_name))
+    (razor_implicit_expression
+      (boolean_literal))
+    (end_tag
+      (element_name))))
+
+================================================================================
+Razor implicit expression - false literal
+================================================================================
+<p>@false</p>
+--------------------------------------------------------------------------------
+
+(compilation_unit
+  (element
+    (start_tag
+      (element_name))
+    (razor_implicit_expression
+      (boolean_literal))
+    (end_tag
+      (element_name))))
+
+================================================================================
+Razor implicit expression - null literal
+================================================================================
+<p>@null</p>
+--------------------------------------------------------------------------------
+
+(compilation_unit
+  (element
+    (start_tag
+      (element_name))
+    (razor_implicit_expression
+      (null_literal))
+    (end_tag
+      (element_name))))

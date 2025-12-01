@@ -1,0 +1,184 @@
+================================================================================
+Simple code block
+================================================================================
+@{
+    var message = "Hello";
+}
+--------------------------------------------------------------------------------
+
+(compilation_unit
+  (razor_code_block
+    (local_declaration_statement
+      (variable_declaration
+        (implicit_type)
+        (variable_declarator
+          (identifier)
+          (string_literal
+            (string_literal_content)))))))
+
+================================================================================
+Code block with HTML output
+================================================================================
+@{
+    var show = true;
+    <p>Always visible</p>
+}
+--------------------------------------------------------------------------------
+
+(compilation_unit
+  (razor_code_block
+    (local_declaration_statement
+      (variable_declaration
+        (implicit_type)
+        (variable_declarator
+          (identifier)
+          (boolean_literal))))
+    (element
+      (start_tag
+        (element_name))
+      (text)
+      (end_tag
+        (element_name)))))
+
+================================================================================
+Code block with text literal
+================================================================================
+@{
+    @:This is plain text
+}
+--------------------------------------------------------------------------------
+
+(compilation_unit
+  (razor_code_block
+    (razor_text_literal)))
+
+================================================================================
+Functions block
+================================================================================
+@functions {
+    private int count = 0;
+
+    private void Increment()
+    {
+        count++;
+    }
+}
+--------------------------------------------------------------------------------
+
+(compilation_unit
+  (razor_functions_directive
+    (declaration_list
+      (field_declaration
+        (modifier)
+        (variable_declaration
+          (predefined_type)
+          (variable_declarator
+            (identifier)
+            (integer_literal))))
+      (method_declaration
+        (modifier)
+        (predefined_type)
+        (identifier)
+        (parameter_list)
+        (block
+          (expression_statement
+            (postfix_unary_expression
+              (identifier))))))))
+
+================================================================================
+HTML inside method body
+================================================================================
+@{
+    void RenderName(string name)
+    {
+        <p>Name: <strong>@name</strong></p>
+    }
+
+    RenderName("Mahatma Gandhi");
+    RenderName("Martin Luther King, Jr.");
+}
+--------------------------------------------------------------------------------
+
+(compilation_unit
+  (razor_code_block
+    (local_function_statement
+      (predefined_type)
+      (identifier)
+      (parameter_list
+        (parameter
+          (predefined_type)
+          (identifier)))
+      (block
+        (element
+          (start_tag
+            (element_name))
+          (text)
+          (element
+            (start_tag
+              (element_name))
+            (razor_implicit_expression
+              (identifier))
+            (end_tag
+              (element_name)))
+          (end_tag
+            (element_name)))))
+    (expression_statement
+      (invocation_expression
+        (identifier)
+        (argument_list
+          (argument
+            (string_literal
+              (string_literal_content))))))
+    (expression_statement
+      (invocation_expression
+        (identifier)
+        (argument_list
+          (argument
+            (string_literal
+              (string_literal_content))))))))
+
+================================================================================
+Preprocessor directives in code block
+================================================================================
+@{
+    #region Initialization
+    var x = 1;
+    #endregion
+}
+--------------------------------------------------------------------------------
+
+(compilation_unit
+  (razor_code_block
+    (preproc)
+    (local_declaration_statement
+      (variable_declaration
+        (implicit_type)
+        (variable_declarator
+          (identifier)
+          (integer_literal))))
+    (preproc)))
+
+================================================================================
+Preprocessor text in HTML is not a directive
+================================================================================
+<div>
+#region This is just text
+<p>Not a directive</p>
+#endregion
+</div>
+--------------------------------------------------------------------------------
+
+(compilation_unit
+  (element
+    (start_tag
+      (element_name))
+    (text)
+    (element
+      (start_tag
+        (element_name))
+      (text)
+      (end_tag
+        (element_name)))
+    (text)
+    (end_tag
+      (element_name))))

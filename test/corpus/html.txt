@@ -1,0 +1,136 @@
+================================================================================
+DOCTYPE declaration
+================================================================================
+<!DOCTYPE html>
+--------------------------------------------------------------------------------
+
+(compilation_unit
+  (doctype))
+
+================================================================================
+Simple HTML element
+================================================================================
+<div>Hello</div>
+--------------------------------------------------------------------------------
+
+(compilation_unit
+  (element
+    (start_tag
+      (element_name))
+    (text)
+    (end_tag
+      (element_name))))
+
+================================================================================
+Self-closing element
+================================================================================
+<br/>
+--------------------------------------------------------------------------------
+
+(compilation_unit
+  (self_closing_element
+    (element_name)))
+
+================================================================================
+Tag Helper opt-out element
+================================================================================
+<!span>Hello</!span>
+--------------------------------------------------------------------------------
+
+(compilation_unit
+  (element
+    (start_tag
+      name: (element_name))
+    (text)
+    (end_tag
+      name: (element_name))))
+
+================================================================================
+Nested elements
+================================================================================
+<div><span>Hello</span></div>
+--------------------------------------------------------------------------------
+
+(compilation_unit
+  (element
+    (start_tag
+      (element_name))
+    (element
+      (start_tag
+        (element_name))
+      (text)
+      (end_tag
+        (element_name)))
+    (end_tag
+      (element_name))))
+
+================================================================================
+Element with attribute
+================================================================================
+<div class="container">Content</div>
+--------------------------------------------------------------------------------
+
+(compilation_unit
+  (element
+    (start_tag
+      (element_name)
+      (attribute
+        (attribute_name)
+        (attribute_value
+          (quoted_attribute_value))))
+    (text)
+    (end_tag
+      (element_name))))
+
+================================================================================
+Element with multiple attributes
+================================================================================
+<input type="text" id="name" required/>
+--------------------------------------------------------------------------------
+
+(compilation_unit
+  (self_closing_element
+    (element_name)
+    (attribute
+      (attribute_name)
+      (attribute_value
+        (quoted_attribute_value)))
+    (attribute
+      (attribute_name)
+      (attribute_value
+        (quoted_attribute_value)))
+    (attribute
+      (attribute_name))))
+
+================================================================================
+Boolean attribute
+================================================================================
+<button disabled>Click</button>
+--------------------------------------------------------------------------------
+
+(compilation_unit
+  (element
+    (start_tag
+      (element_name)
+      (attribute
+        (attribute_name)))
+    (text)
+    (end_tag
+      (element_name))))
+
+================================================================================
+Single quoted attribute
+================================================================================
+<div class='container'></div>
+--------------------------------------------------------------------------------
+
+(compilation_unit
+  (element
+    (start_tag
+      (element_name)
+      (attribute
+        (attribute_name)
+        (attribute_value
+          (quoted_attribute_value))))
+    (end_tag
+      (element_name))))

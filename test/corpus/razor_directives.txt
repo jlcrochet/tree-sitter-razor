@@ -1,0 +1,222 @@
+================================================================================
+Page directive
+================================================================================
+@page "/counter"
+--------------------------------------------------------------------------------
+
+(compilation_unit
+  (razor_page_directive
+    (string_literal
+      (string_literal_content))))
+
+================================================================================
+Model directive
+================================================================================
+@model MyViewModel
+--------------------------------------------------------------------------------
+
+(compilation_unit
+  (razor_model_directive
+    (identifier)))
+
+================================================================================
+Using directive
+================================================================================
+@using System.Collections.Generic
+--------------------------------------------------------------------------------
+
+(compilation_unit
+  (razor_using_directive
+    (qualified_name
+      (qualified_name
+        (identifier)
+        (identifier))
+      (identifier))))
+
+================================================================================
+Inject directive
+================================================================================
+@inject ILogger<Index> Logger
+--------------------------------------------------------------------------------
+
+(compilation_unit
+  (razor_inject_directive
+    (generic_name
+      (identifier)
+      (type_argument_list
+        (identifier)))
+    (identifier)))
+
+================================================================================
+Inherits directive
+================================================================================
+@inherits LayoutComponentBase
+--------------------------------------------------------------------------------
+
+(compilation_unit
+  (razor_inherits_directive
+    (identifier)))
+
+================================================================================
+Section directive
+================================================================================
+@section Scripts {
+    <script src="app.js"></script>
+}
+--------------------------------------------------------------------------------
+
+(compilation_unit
+  (razor_section_directive
+    (identifier)
+    (element
+      (start_tag
+        (element_name)
+        (attribute
+          (attribute_name)
+          (attribute_value
+            (quoted_attribute_value))))
+      (end_tag
+        (element_name)))))
+
+================================================================================
+Layout directive
+================================================================================
+@layout MainLayout
+--------------------------------------------------------------------------------
+
+(compilation_unit
+  (razor_layout_directive
+    (identifier)))
+
+================================================================================
+Namespace directive
+================================================================================
+@namespace MyApp.Components
+--------------------------------------------------------------------------------
+
+(compilation_unit
+  (razor_namespace_directive
+    (qualified_name
+      (identifier)
+      (identifier))))
+
+================================================================================
+Implements directive
+================================================================================
+@implements IDisposable
+--------------------------------------------------------------------------------
+
+(compilation_unit
+  (razor_implements_directive
+    (identifier)))
+
+================================================================================
+Attribute directive
+================================================================================
+@attribute [Authorize]
+--------------------------------------------------------------------------------
+
+(compilation_unit
+  (razor_attribute_directive
+    (attribute_list
+      (attribute
+        (attribute_name)))))
+
+================================================================================
+Typeparam directive
+================================================================================
+@typeparam TItem
+--------------------------------------------------------------------------------
+
+(compilation_unit
+  (razor_typeparam_directive
+    (identifier)))
+
+================================================================================
+Preservewhitespace directive
+================================================================================
+@preservewhitespace true
+--------------------------------------------------------------------------------
+
+(compilation_unit
+  (razor_preservewhitespace_directive
+    (boolean_literal)))
+
+================================================================================
+Code directive
+================================================================================
+@code {
+    private int count = 0;
+}
+--------------------------------------------------------------------------------
+
+(compilation_unit
+  (razor_code_directive
+    (declaration_list
+      (field_declaration
+        (modifier)
+        (variable_declaration
+          (predefined_type)
+          (variable_declarator
+            (identifier)
+            (integer_literal)))))))
+
+================================================================================
+AddTagHelper directive with wildcard
+================================================================================
+@addTagHelper *, Microsoft.AspNetCore.Mvc.TagHelpers
+--------------------------------------------------------------------------------
+
+(compilation_unit
+  (razor_addtaghelper_directive
+    type_pattern: (tag_helper_type_pattern)
+    assembly: (qualified_name
+      qualifier: (qualified_name
+        qualifier: (qualified_name
+          qualifier: (identifier)
+          name: (identifier))
+        name: (identifier))
+      name: (identifier))))
+
+================================================================================
+AddTagHelper directive with specific type
+================================================================================
+@addTagHelper AuthoringTagHelpers.TagHelpers.EmailTagHelper, AuthoringTagHelpers
+--------------------------------------------------------------------------------
+
+(compilation_unit
+  (razor_addtaghelper_directive
+    type_pattern: (tag_helper_type_pattern
+      (qualified_name
+        qualifier: (qualified_name
+          qualifier: (identifier)
+          name: (identifier))
+        name: (identifier)))
+    assembly: (identifier)))
+
+================================================================================
+RemoveTagHelper directive
+================================================================================
+@removeTagHelper *, Microsoft.AspNetCore.Mvc.TagHelpers
+--------------------------------------------------------------------------------
+
+(compilation_unit
+  (razor_removetaghelper_directive
+    type_pattern: (tag_helper_type_pattern)
+    assembly: (qualified_name
+      qualifier: (qualified_name
+        qualifier: (qualified_name
+          qualifier: (identifier)
+          name: (identifier))
+        name: (identifier))
+      name: (identifier))))
+
+================================================================================
+TagHelperPrefix directive
+================================================================================
+@tagHelperPrefix th:
+--------------------------------------------------------------------------------
+
+(compilation_unit
+  (razor_taghelperprefix_directive
+    prefix: (tag_helper_prefix)))

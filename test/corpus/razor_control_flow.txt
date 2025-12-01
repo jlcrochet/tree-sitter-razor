@@ -1,0 +1,375 @@
+================================================================================
+If statement
+================================================================================
+@if (show)
+{
+    <p>Visible</p>
+}
+--------------------------------------------------------------------------------
+
+(compilation_unit
+  (razor_statement
+    (if_statement
+      (identifier)
+      (razor_block
+        (element
+          (start_tag
+            (element_name))
+          (text)
+          (end_tag
+            (element_name)))))))
+
+================================================================================
+If-else statement
+================================================================================
+@if (condition)
+{
+    <p>True</p>
+}
+else
+{
+    <p>False</p>
+}
+--------------------------------------------------------------------------------
+
+(compilation_unit
+  (razor_statement
+    (if_statement
+      (identifier)
+      (razor_block
+        (element
+          (start_tag
+            (element_name))
+          (text)
+          (end_tag
+            (element_name))))
+      (else_clause
+        (razor_block
+          (element
+            (start_tag
+              (element_name))
+            (text)
+            (end_tag
+              (element_name))))))))
+
+================================================================================
+If-else if-else statement
+================================================================================
+@if (a)
+{
+    <p>A</p>
+}
+else if (b)
+{
+    <p>B</p>
+}
+else
+{
+    <p>C</p>
+}
+--------------------------------------------------------------------------------
+
+(compilation_unit
+  (razor_statement
+    (if_statement
+      (identifier)
+      (razor_block
+        (element
+          (start_tag
+            (element_name))
+          (text)
+          (end_tag
+            (element_name))))
+      (if_statement
+        (identifier)
+        (razor_block
+          (element
+            (start_tag
+              (element_name))
+            (text)
+            (end_tag
+              (element_name))))
+        (else_clause
+          (razor_block
+            (element
+              (start_tag
+                (element_name))
+              (text)
+              (end_tag
+                (element_name)))))))))
+
+================================================================================
+Foreach loop
+================================================================================
+@foreach (var item in items)
+{
+    <li>@item</li>
+}
+--------------------------------------------------------------------------------
+
+(compilation_unit
+  (razor_statement
+    (foreach_statement
+      (implicit_type)
+      (identifier)
+      (identifier)
+      (razor_block
+        (element
+          (start_tag
+            (element_name))
+          (razor_implicit_expression
+            (identifier))
+          (end_tag
+            (element_name)))))))
+
+================================================================================
+For loop
+================================================================================
+@for (int i = 0; i < 10; i++)
+{
+    <span>@i</span>
+}
+--------------------------------------------------------------------------------
+
+(compilation_unit
+  (razor_statement
+    (for_statement
+      (variable_declaration
+        (predefined_type)
+        (variable_declarator
+          (identifier)
+          (integer_literal)))
+      (binary_expression
+        (identifier)
+        (integer_literal))
+      (postfix_unary_expression
+        (identifier))
+      (razor_block
+        (element
+          (start_tag
+            (element_name))
+          (razor_implicit_expression
+            (identifier))
+          (end_tag
+            (element_name)))))))
+
+================================================================================
+While loop
+================================================================================
+@while (hasMore)
+{
+    <p>Loading</p>
+}
+--------------------------------------------------------------------------------
+
+(compilation_unit
+  (razor_statement
+    (while_statement
+      (identifier)
+      (razor_block
+        (element
+          (start_tag
+            (element_name))
+          (text)
+          (end_tag
+            (element_name)))))))
+
+================================================================================
+Do-while loop
+================================================================================
+@do
+{
+    <p>Loading</p>
+}
+while (hasMore);
+--------------------------------------------------------------------------------
+
+(compilation_unit
+  (razor_statement
+    (do_statement
+      (razor_block
+        (element
+          (start_tag
+            (element_name))
+          (text)
+          (end_tag
+            (element_name))))
+      (identifier))))
+
+================================================================================
+Try-catch statement
+================================================================================
+@try
+{
+    <p>Try</p>
+}
+catch
+{
+    <p>Error</p>
+}
+--------------------------------------------------------------------------------
+
+(compilation_unit
+  (razor_statement
+    (try_statement
+      (razor_block
+        (element
+          (start_tag
+            (element_name))
+          (text)
+          (end_tag
+            (element_name))))
+      (catch_clause
+        (razor_block
+          (element
+            (start_tag
+              (element_name))
+            (text)
+            (end_tag
+              (element_name))))))))
+
+================================================================================
+Try-catch-finally statement
+================================================================================
+@try
+{
+    <p>Try</p>
+}
+catch (Exception ex)
+{
+    <p>Error</p>
+}
+finally
+{
+    <p>Done</p>
+}
+--------------------------------------------------------------------------------
+
+(compilation_unit
+  (razor_statement
+    (try_statement
+      (razor_block
+        (element
+          (start_tag
+            (element_name))
+          (text)
+          (end_tag
+            (element_name))))
+      (catch_clause
+        (catch_declaration
+          (identifier)
+          (identifier))
+        (razor_block
+          (element
+            (start_tag
+              (element_name))
+            (text)
+            (end_tag
+              (element_name)))))
+      (finally_clause
+        (razor_block
+          (element
+            (start_tag
+              (element_name))
+            (text)
+            (end_tag
+              (element_name))))))))
+
+================================================================================
+Using statement (disposable)
+================================================================================
+@using (Html.BeginForm())
+{
+    <div>Form content</div>
+}
+--------------------------------------------------------------------------------
+
+(compilation_unit
+  (razor_statement
+    (using_statement
+      (invocation_expression
+        (member_access_expression
+          (identifier)
+          (identifier))
+        (argument_list))
+      (razor_block
+        (element
+          (start_tag
+            (element_name))
+          (text)
+          (end_tag
+            (element_name)))))))
+
+================================================================================
+Lock statement
+================================================================================
+@lock (syncObject)
+{
+    <p>Synchronized content</p>
+}
+--------------------------------------------------------------------------------
+
+(compilation_unit
+  (razor_statement
+    (lock_statement
+      (identifier)
+      (razor_block
+        (element
+          (start_tag
+            (element_name))
+          (text)
+          (end_tag
+            (element_name)))))))
+
+================================================================================
+Switch statement
+================================================================================
+@switch (status)
+{
+    case "active":
+        <span>Active</span>
+        break;
+    case "inactive":
+        <span>Inactive</span>
+        break;
+    default:
+        <span>Unknown</span>
+        break;
+}
+--------------------------------------------------------------------------------
+
+(compilation_unit
+  (razor_statement
+    (switch_statement
+      (identifier)
+      (switch_body
+        (razor_switch_section
+          (constant_pattern
+            (string_literal
+              (string_literal_content)))
+          (element
+            (start_tag
+              (element_name))
+            (text)
+            (end_tag
+              (element_name)))
+          (break_statement))
+        (razor_switch_section
+          (constant_pattern
+            (string_literal
+              (string_literal_content)))
+          (element
+            (start_tag
+              (element_name))
+            (text)
+            (end_tag
+              (element_name)))
+          (break_statement))
+        (razor_switch_section
+          (element
+            (start_tag
+              (element_name))
+            (text)
+            (end_tag
+              (element_name)))
+          (break_statement))))))
