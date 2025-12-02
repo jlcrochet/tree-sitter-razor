@@ -68,14 +68,14 @@ Section directive
 (compilation_unit
   (razor_section_directive
     (identifier)
-    (element
-      (start_tag
+    (script_element
+      (script_start_tag
         (element_name)
-        (attribute
-          (attribute_name)
-          (attribute_value
-            (quoted_attribute_value))))
-      (end_tag
+        (html_attribute
+          (html_attribute_name)
+          (html_attribute_value
+            (html_quoted_attribute_value))))
+      (script_end_tag
         (element_name)))))
 
 ================================================================================
@@ -120,7 +120,7 @@ Attribute directive
   (razor_attribute_directive
     (attribute_list
       (attribute
-        (attribute_name)))))
+        name: (identifier)))))
 
 ================================================================================
 Typeparam directive

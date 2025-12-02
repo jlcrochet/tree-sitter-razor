@@ -7,10 +7,10 @@ Blazor component with parameter
 (compilation_unit
   (self_closing_element
     (element_name)
-    (attribute
-      (attribute_name)
-      (attribute_value
-        (quoted_attribute_value)))))
+    (html_attribute
+      (html_attribute_name)
+      (html_attribute_value
+        (html_quoted_attribute_value)))))
 
 ================================================================================
 Blazor component with child content
@@ -46,9 +46,9 @@ Razor attribute onclick
     (start_tag
       (element_name)
       (razor_attribute
-        (attribute_name)
-        (attribute_value
-          (quoted_attribute_value))))
+        (html_attribute_name)
+        (html_attribute_value
+          (html_quoted_attribute_value))))
     (text)
     (end_tag
       (element_name))))
@@ -63,9 +63,9 @@ Razor attribute bind
   (self_closing_element
     (element_name)
     (razor_attribute
-      (attribute_name)
-      (attribute_value
-        (quoted_attribute_value)))))
+      (html_attribute_name)
+      (html_attribute_value
+        (html_quoted_attribute_value)))))
 
 ================================================================================
 Razor attribute with expression
@@ -78,9 +78,9 @@ Razor attribute with expression
     (start_tag
       (element_name)
       (razor_attribute
-        (attribute_name)
-        (attribute_value
-          (quoted_attribute_value
+        (html_attribute_name)
+        (html_attribute_value
+          (html_quoted_attribute_value
             (razor_explicit_expression
               (lambda_expression
                 (parameter_list)
@@ -100,10 +100,10 @@ Expression in attribute value
   (element
     (start_tag
       (element_name)
-      (attribute
-        (attribute_name)
-        (attribute_value
-          (quoted_attribute_value
+      (html_attribute
+        (html_attribute_name)
+        (html_attribute_value
+          (html_quoted_attribute_value
             (razor_implicit_expression
               (identifier))))))
     (text)
@@ -120,10 +120,10 @@ Multiple expressions in attribute
   (element
     (start_tag
       (element_name)
-      (attribute
-        (attribute_name)
-        (attribute_value
-          (quoted_attribute_value
+      (html_attribute
+        (html_attribute_name)
+        (html_attribute_value
+          (html_quoted_attribute_value
             (razor_implicit_expression
               (identifier))
             (razor_implicit_expression

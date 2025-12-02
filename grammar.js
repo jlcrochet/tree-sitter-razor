@@ -46,6 +46,11 @@ module.exports = grammar(csharp, {
     $._csharp_context_close,        // } or ) that exits C# context
     $._csharp_comment,              // C# comment, only valid in C# context
     $._csharp_preproc,              // C# preprocessor directive, only valid in C# context
+    // Script/style/title/textarea raw text content
+    $._script_content,              // Raw content inside <script> tags
+    $._style_content,               // Raw content inside <style> tags
+    $._title_content,               // Raw content inside <title> tags
+    $._textarea_content,            // Raw content inside <textarea> tags
   ]),
 
   rules: {
@@ -56,6 +61,10 @@ module.exports = grammar(csharp, {
     // At top level, text uses keyword-aware scanner to stop before else/catch/finally
     _node: $ => choice(
       $.doctype,
+      $.script_element,
+      $.style_element,
+      $.title_element,
+      $.textarea_element,
       $.element,
       $.self_closing_element,
       $.html_comment,
@@ -281,6 +290,10 @@ module.exports = grammar(csharp, {
 
     // Content inside elements - doesn't need keyword awareness
     _element_content: $ => choice(
+      $.script_element,
+      $.style_element,
+      $.title_element,
+      $.textarea_element,
       $.element,
       $.self_closing_element,
       $.html_comment,
@@ -298,7 +311,7 @@ module.exports = grammar(csharp, {
       '<',
       optional($._tag_helper_opt_out),
       field('name', alias($._immediate_element_name, $.element_name)),
-      repeat($._attribute),
+      repeat($._html_attribute),
       '/',
       token.immediate('>'),
     ),
@@ -307,7 +320,7 @@ module.exports = grammar(csharp, {
       '<',
       optional($._tag_helper_opt_out),
       field('name', alias($._immediate_element_name, $.element_name)),
-      repeat($._attribute),
+      repeat($._html_attribute),
       '>',
     ),
 
@@ -327,39 +340,140 @@ module.exports = grammar(csharp, {
     element_name: _ => /[a-zA-Z][a-zA-Z0-9:-]*/,
 
     // =========================================================================
+    // Script and Style Elements
+    // =========================================================================
+
+    // Script elements contain raw JavaScript content that shouldn't be parsed as HTML
+    // Higher precedence than regular elements to ensure <script> is matched first
+    script_element: $ => prec(1, seq(
+      $.script_start_tag,
+      optional($.script_content),
+      $.script_end_tag,
+    )),
+
+    script_start_tag: $ => seq(
+      '<',
+      alias(token.immediate(prec(1, /[Ss][Cc][Rr][Ii][Pp][Tt]/)), $.element_name),
+      repeat($._html_attribute),
+      '>',
+    ),
+
+    script_end_tag: $ => seq(
+      '</',
+      alias(token.immediate(prec(1, /[Ss][Cc][Rr][Ii][Pp][Tt]/)), $.element_name),
+      '>',
+    ),
+
+    script_content: $ => $._script_content,
+
+    // Style elements contain raw CSS content that shouldn't be parsed as HTML
+    // Higher precedence than regular elements to ensure <style> is matched first
+    style_element: $ => prec(1, seq(
+      $.style_start_tag,
+      optional($.style_content),
+      $.style_end_tag,
+    )),
+
+    style_start_tag: $ => seq(
+      '<',
+      alias(token.immediate(prec(1, /[Ss][Tt][Yy][Ll][Ee]/)), $.element_name),
+      repeat($._html_attribute),
+      '>',
+    ),
+
+    style_end_tag: $ => seq(
+      '</',
+      alias(token.immediate(prec(1, /[Ss][Tt][Yy][Ll][Ee]/)), $.element_name),
+      '>',
+    ),
+
+    style_content: $ => $._style_content,
+
+    // Title elements contain raw text (but can have character references)
+    // Higher precedence than regular elements to ensure <title> is matched first
+    title_element: $ => prec(1, seq(
+      $.title_start_tag,
+      optional($.title_content),
+      $.title_end_tag,
+    )),
+
+    title_start_tag: $ => seq(
+      '<',
+      alias(token.immediate(prec(1, /[Tt][Ii][Tt][Ll][Ee]/)), $.element_name),
+      repeat($._html_attribute),
+      '>',
+    ),
+
+    title_end_tag: $ => seq(
+      '</',
+      alias(token.immediate(prec(1, /[Tt][Ii][Tt][Ll][Ee]/)), $.element_name),
+      '>',
+    ),
+
+    // Title content is raw text - doesn't contain child elements
+    title_content: $ => $._title_content,
+
+    // Textarea elements contain raw text (but can have character references)
+    // Higher precedence than regular elements to ensure <textarea> is matched first
+    textarea_element: $ => prec(1, seq(
+      $.textarea_start_tag,
+      optional($.textarea_content),
+      $.textarea_end_tag,
+    )),
+
+    textarea_start_tag: $ => seq(
+      '<',
+      alias(token.immediate(prec(1, /[Tt][Ee][Xx][Tt][Aa][Rr][Ee][Aa]/)), $.element_name),
+      repeat($._html_attribute),
+      '>',
+    ),
+
+    textarea_end_tag: $ => seq(
+      '</',
+      alias(token.immediate(prec(1, /[Tt][Ee][Xx][Tt][Aa][Rr][Ee][Aa]/)), $.element_name),
+      '>',
+    ),
+
+    // Textarea content is raw text - doesn't contain child elements
+    textarea_content: $ => $._textarea_content,
+
+    // =========================================================================
     // HTML Attributes
     // =========================================================================
 
-    _attribute: $ => choice(
-      $.attribute,
+    // Note: HTML attribute rules are prefixed with "html_" to avoid collision
+    // with C#'s `attribute` rule (used for [Attribute] syntax)
+
+    _html_attribute: $ => choice(
+      $.html_attribute,
       $.razor_attribute,
     ),
 
-    attribute: $ => choice(
+    html_attribute: $ => choice(
       // Attribute with value: name="value" or name = "value"
       seq(
-        $.attribute_name,
+        $.html_attribute_name,
         '=',
-        $.attribute_value,
+        $.html_attribute_value,
       ),
       // Boolean attribute: name (no value)
-      $.attribute_name,
+      $.html_attribute_name,
     ),
 
     // Note: @ is NOT allowed at start - @attributes are handled by razor_attribute
-    attribute_name: _ => /[a-zA-Z_:][a-zA-Z0-9_.:-]*/,
+    html_attribute_name: _ => /[a-zA-Z_:][a-zA-Z0-9_.:-]*/,
 
-    attribute_value: $ => choice(
-      $.quoted_attribute_value,
-      $.unquoted_attribute_value,
+    html_attribute_value: $ => choice(
+      $.html_quoted_attribute_value,
+      $.html_unquoted_attribute_value,
     ),
 
-    quoted_attribute_value: $ => choice(
-      seq('"', optional($._double_quoted_attribute_content), '"'),
-      seq("'", optional($._single_quoted_attribute_content), "'"),
+    html_quoted_attribute_value: $ => choice(
+      seq('"', optional($._html_double_quoted_attribute_content), '"'),
+      seq("'", optional($._html_single_quoted_attribute_content), "'"),
     ),
 
-    _double_quoted_attribute_content: $ => repeat1(choice(
+    _html_double_quoted_attribute_content: $ => repeat1(choice(
       /[^"@]+/,
       // Email/literal @ in attribute values (e.g., mailto:user@example.com)
       $._text_with_literal_at,
@@ -367,7 +481,7 @@ module.exports = grammar(csharp, {
       $.razor_implicit_expression,
     )),
 
-    _single_quoted_attribute_content: $ => repeat1(choice(
+    _html_single_quoted_attribute_content: $ => repeat1(choice(
       /[^'@]+/,
       // Email/literal @ in attribute values
       $._text_with_literal_at,
@@ -375,19 +489,19 @@ module.exports = grammar(csharp, {
       $.razor_implicit_expression,
     )),
 
-    unquoted_attribute_value: _ => /[^\s"'=<>`]+/,
+    html_unquoted_attribute_value: _ => /[^\s"'=<>`]+/,
 
     // Razor-specific attribute (e.g., @onclick, @bind)
     razor_attribute: $ => choice(
       // With value: @onclick="handler"
       seq(
         '@',
-        $.attribute_name,
+        $.html_attribute_name,
         '=',
-        $.attribute_value,
+        $.html_attribute_value,
       ),
       // Without value: @rendermode
-      seq('@', $.attribute_name),
+      seq('@', $.html_attribute_name),
     ),
 
     // =========================================================================

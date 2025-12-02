@@ -26,10 +26,10 @@ Email address as literal text
   (element
     (start_tag
       (element_name)
-      (attribute
-        (attribute_name)
-        (attribute_value
-          (quoted_attribute_value))))
+      (html_attribute
+        (html_attribute_name)
+        (html_attribute_value
+          (html_quoted_attribute_value))))
     (text
       (text))
     (end_tag
