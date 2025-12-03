@@ -13,7 +13,8 @@ module.exports = grammar(csharp, {
   name: "razor",
 
   conflicts: ($, original) => original.concat([
-    [$._razor_access_chain],
+    [$._razor_access_chain, $._razor_element_access],
+    [$._razor_access_chain, $._razor_invocation],
   ]),
 
   supertypes: ($, original) => original.concat([
@@ -691,25 +692,55 @@ module.exports = grammar(csharp, {
     // Also matches literal keywords: true, false, null
     // Note: Generics are NOT allowed in implicit expressions - <> is interpreted as HTML
     // Use @(GenericMethod<int>()) for generics
+    //
+    // Produces proper C#-style expression nodes:
+    // - member_access_expression for .member
+    // - invocation_expression for method calls
+    // - element_access_expression for indexers
+    // - conditional_access_expression for ?.member
     _razor_access_chain: $ => choice(
-      // prec.dynamic is needed for identifier chains because there's ambiguity between
-      // "identifier" alone vs "identifier followed by accessors" - we prefer the longer match
-      prec.dynamic(20, seq($.identifier, repeat1($._razor_accessor))),
-      prec.dynamic(1, $.identifier),
-      // These literals are unambiguous - no prec.dynamic needed
+      $._razor_primary_expression,
+      // These literals are unambiguous
       $.boolean_literal,
       $.null_literal,
     ),
 
-    // Accessor patterns for implicit expressions
-    // NOTE: Due to C# extras (whitespace), whitespace between . and identifier is allowed.
-    // This is a known limitation - @x. y will parse as @x.y not @x followed by text.
-    _razor_accessor: $ => prec.left(choice(
-      seq('.', $.identifier),
-      seq('.', $.identifier, $.argument_list),
-      seq('[', $.expression, ']'),
-      seq('?.', $.identifier),
-      $.argument_list,
+    // Primary expression that can have member access, invocation, or indexing applied
+    // Uses prec.left for left-to-right associativity (foo.bar.baz groups as ((foo.bar).baz))
+    _razor_primary_expression: $ => choice(
+      prec.dynamic(1, $.identifier),
+      prec.dynamic(20, alias($._razor_member_access, $.member_access_expression)),
+      prec.dynamic(20, alias($._razor_invocation, $.invocation_expression)),
+      prec.dynamic(20, alias($._razor_element_access, $.element_access_expression)),
+      prec.dynamic(20, alias($._razor_conditional_access, $.conditional_access_expression)),
+    ),
+
+    // Member access: expr.identifier
+    _razor_member_access: $ => prec.left(seq(
+      field('expression', $._razor_primary_expression),
+      '.',
+      field('name', $.identifier),
+    )),
+
+    // Invocation: expr(args) or expr.method(args)
+    _razor_invocation: $ => prec.left(seq(
+      field('function', $._razor_primary_expression),
+      field('arguments', $.argument_list),
+    )),
+
+    // Element access: expr[index]
+    _razor_element_access: $ => prec.left(seq(
+      field('expression', $._razor_primary_expression),
+      '[',
+      field('subscript', $.expression),
+      ']',
+    )),
+
+    // Conditional access: expr?.identifier
+    _razor_conditional_access: $ => prec.left(seq(
+      field('expression', $._razor_primary_expression),
+      '?.',
+      field('name', $.identifier),
     )),
 
     // =========================================================================

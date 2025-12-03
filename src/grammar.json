@@ -13586,32 +13586,8 @@
       "type": "CHOICE",
       "members": [
         {
-          "type": "PREC_DYNAMIC",
-          "value": 20,
-          "content": {
-            "type": "SEQ",
-            "members": [
-              {
-                "type": "SYMBOL",
-                "name": "identifier"
-              },
-              {
-                "type": "REPEAT1",
-                "content": {
-                  "type": "SYMBOL",
-                  "name": "_razor_accessor"
-                }
-              }
-            ]
-          }
-        },
-        {
-          "type": "PREC_DYNAMIC",
-          "value": 1,
-          "content": {
-            "type": "SYMBOL",
-            "name": "identifier"
-          }
+          "type": "SYMBOL",
+          "name": "_razor_primary_expression"
         },
         {
           "type": "SYMBOL",
@@ -13623,75 +13599,183 @@
         }
       ]
     },
-    "_razor_accessor": {
+    "_razor_primary_expression": {
+      "type": "CHOICE",
+      "members": [
+        {
+          "type": "PREC_DYNAMIC",
+          "value": 1,
+          "content": {
+            "type": "SYMBOL",
+            "name": "identifier"
+          }
+        },
+        {
+          "type": "PREC_DYNAMIC",
+          "value": 20,
+          "content": {
+            "type": "ALIAS",
+            "content": {
+              "type": "SYMBOL",
+              "name": "_razor_member_access"
+            },
+            "named": true,
+            "value": "member_access_expression"
+          }
+        },
+        {
+          "type": "PREC_DYNAMIC",
+          "value": 20,
+          "content": {
+            "type": "ALIAS",
+            "content": {
+              "type": "SYMBOL",
+              "name": "_razor_invocation"
+            },
+            "named": true,
+            "value": "invocation_expression"
+          }
+        },
+        {
+          "type": "PREC_DYNAMIC",
+          "value": 20,
+          "content": {
+            "type": "ALIAS",
+            "content": {
+              "type": "SYMBOL",
+              "name": "_razor_element_access"
+            },
+            "named": true,
+            "value": "element_access_expression"
+          }
+        },
+        {
+          "type": "PREC_DYNAMIC",
+          "value": 20,
+          "content": {
+            "type": "ALIAS",
+            "content": {
+              "type": "SYMBOL",
+              "name": "_razor_conditional_access"
+            },
+            "named": true,
+            "value": "conditional_access_expression"
+          }
+        }
+      ]
+    },
+    "_razor_member_access": {
       "type": "PREC_LEFT",
       "value": 0,
       "content": {
-        "type": "CHOICE",
+        "type": "SEQ",
         "members": [
           {
-            "type": "SEQ",
-            "members": [
-              {
-                "type": "STRING",
-                "value": "."
-              },
-              {
-                "type": "SYMBOL",
-                "name": "identifier"
-              }
-            ]
+            "type": "FIELD",
+            "name": "expression",
+            "content": {
+              "type": "SYMBOL",
+              "name": "_razor_primary_expression"
+            }
           },
           {
-            "type": "SEQ",
-            "members": [
-              {
-                "type": "STRING",
-                "value": "."
-              },
-              {
-                "type": "SYMBOL",
-                "name": "identifier"
-              },
-              {
-                "type": "SYMBOL",
-                "name": "argument_list"
-              }
-            ]
+            "type": "STRING",
+            "value": "."
           },
           {
-            "type": "SEQ",
-            "members": [
-              {
-                "type": "STRING",
-                "value": "["
-              },
-              {
-                "type": "SYMBOL",
-                "name": "expression"
-              },
-              {
-                "type": "STRING",
-                "value": "]"
-              }
-            ]
+            "type": "FIELD",
+            "name": "name",
+            "content": {
+              "type": "SYMBOL",
+              "name": "identifier"
+            }
+          }
+        ]
+      }
+    },
+    "_razor_invocation": {
+      "type": "PREC_LEFT",
+      "value": 0,
+      "content": {
+        "type": "SEQ",
+        "members": [
+          {
+            "type": "FIELD",
+            "name": "function",
+            "content": {
+              "type": "SYMBOL",
+              "name": "_razor_primary_expression"
+            }
           },
           {
-            "type": "SEQ",
-            "members": [
-              {
-                "type": "STRING",
-                "value": "?."
-              },
-              {
-                "type": "SYMBOL",
-                "name": "identifier"
-              }
-            ]
+            "type": "FIELD",
+            "name": "arguments",
+            "content": {
+              "type": "SYMBOL",
+              "name": "argument_list"
+            }
+          }
+        ]
+      }
+    },
+    "_razor_element_access": {
+      "type": "PREC_LEFT",
+      "value": 0,
+      "content": {
+        "type": "SEQ",
+        "members": [
+          {
+            "type": "FIELD",
+            "name": "expression",
+            "content": {
+              "type": "SYMBOL",
+              "name": "_razor_primary_expression"
+            }
           },
           {
-            "type": "SYMBOL",
-            "name": "argument_list"
+            "type": "STRING",
+            "value": "["
+          },
+          {
+            "type": "FIELD",
+            "name": "subscript",
+            "content": {
+              "type": "SYMBOL",
+              "name": "expression"
+            }
+          },
+          {
+            "type": "STRING",
+            "value": "]"
+          }
+        ]
+      }
+    },
+    "_razor_conditional_access": {
+      "type": "PREC_LEFT",
+      "value": 0,
+      "content": {
+        "type": "SEQ",
+        "members": [
+          {
+            "type": "FIELD",
+            "name": "expression",
+            "content": {
+              "type": "SYMBOL",
+              "name": "_razor_primary_expression"
+            }
+          },
+          {
+            "type": "STRING",
+            "value": "?."
+          },
+          {
+            "type": "FIELD",
+            "name": "name",
+            "content": {
+              "type": "SYMBOL",
+              "name": "identifier"
+            }
           }
         ]
       }
@@ -13972,7 +14056,12 @@
       "_simple_name"
     ],
     [
-      "_razor_access_chain"
+      "_razor_access_chain",
+      "_razor_element_access"
+    ],
+    [
+      "_razor_access_chain",
+      "_razor_invocation"
     ]
   ],
   "precedences": [

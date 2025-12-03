@@ -61,8 +61,9 @@ Razor implicit expression - member access
     (start_tag
       (element_name))
     (razor_implicit_expression
-      (identifier)
-      (identifier))
+      (member_access_expression
+        (identifier)
+        (identifier)))
     (end_tag
       (element_name))))
 
@@ -77,10 +78,13 @@ Razor implicit expression - method call
     (start_tag
       (element_name))
     (razor_implicit_expression
-      (identifier)
-      (identifier)
-      (identifier)
-      (argument_list))
+      (invocation_expression
+        (member_access_expression
+          (member_access_expression
+            (identifier)
+            (identifier))
+          (identifier))
+        (argument_list)))
     (end_tag
       (element_name))))
 
@@ -142,8 +146,9 @@ Razor implicit expression with indexer
     (start_tag
       (element_name))
     (razor_implicit_expression
-      (identifier)
-      (integer_literal))
+      (element_access_expression
+        (identifier)
+        (integer_literal)))
     (end_tag
       (element_name))))
 
@@ -158,8 +163,9 @@ Razor implicit expression with null-conditional
     (start_tag
       (element_name))
     (razor_implicit_expression
-      (identifier)
-      (identifier))
+      (conditional_access_expression
+        (identifier)
+        (identifier)))
     (end_tag
       (element_name))))
 

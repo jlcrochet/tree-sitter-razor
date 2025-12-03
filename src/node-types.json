@@ -1867,10 +1867,46 @@
     "fields": {
       "condition": {
         "multiple": false,
-        "required": true,
+        "required": false,
         "types": [
           {
             "type": "expression",
+            "named": true
+          }
+        ]
+      },
+      "expression": {
+        "multiple": false,
+        "required": false,
+        "types": [
+          {
+            "type": "conditional_access_expression",
+            "named": true
+          },
+          {
+            "type": "element_access_expression",
+            "named": true
+          },
+          {
+            "type": "identifier",
+            "named": true
+          },
+          {
+            "type": "invocation_expression",
+            "named": true
+          },
+          {
+            "type": "member_access_expression",
+            "named": true
+          }
+        ]
+      },
+      "name": {
+        "multiple": false,
+        "required": false,
+        "types": [
+          {
+            "type": "identifier",
             "named": true
           }
         ]
@@ -1878,7 +1914,7 @@
     },
     "children": {
       "multiple": false,
-      "required": true,
+      "required": false,
       "types": [
         {
           "type": "element_binding_expression",
@@ -2489,7 +2525,27 @@
         "required": true,
         "types": [
           {
+            "type": "conditional_access_expression",
+            "named": true
+          },
+          {
+            "type": "element_access_expression",
+            "named": true
+          },
+          {
             "type": "expression",
+            "named": true
+          },
+          {
+            "type": "identifier",
+            "named": true
+          },
+          {
+            "type": "invocation_expression",
+            "named": true
+          },
+          {
+            "type": "member_access_expression",
             "named": true
           }
         ]
@@ -2500,6 +2556,10 @@
         "types": [
           {
             "type": "bracketed_argument_list",
+            "named": true
+          },
+          {
+            "type": "expression",
             "named": true
           }
         ]
@@ -3641,7 +3701,27 @@
         "required": true,
         "types": [
           {
+            "type": "conditional_access_expression",
+            "named": true
+          },
+          {
+            "type": "element_access_expression",
+            "named": true
+          },
+          {
             "type": "expression",
+            "named": true
+          },
+          {
+            "type": "identifier",
+            "named": true
+          },
+          {
+            "type": "invocation_expression",
+            "named": true
+          },
+          {
+            "type": "member_access_expression",
             "named": true
           }
         ]
@@ -4041,6 +4121,14 @@
             "named": true
           },
           {
+            "type": "conditional_access_expression",
+            "named": true
+          },
+          {
+            "type": "element_access_expression",
+            "named": true
+          },
+          {
             "type": "expression",
             "named": true
           },
@@ -4050,6 +4138,14 @@
           },
           {
             "type": "identifier",
+            "named": true
+          },
+          {
+            "type": "invocation_expression",
+            "named": true
+          },
+          {
+            "type": "member_access_expression",
             "named": true
           },
           {
@@ -5577,13 +5673,9 @@
     "named": true,
     "fields": {},
     "children": {
-      "multiple": true,
+      "multiple": false,
       "required": true,
       "types": [
-        {
-          "type": "argument_list",
-          "named": true
-        },
         {
           "type": "await_expression",
           "named": true
@@ -5593,11 +5685,23 @@
           "named": true
         },
         {
-          "type": "expression",
+          "type": "conditional_access_expression",
+          "named": true
+        },
+        {
+          "type": "element_access_expression",
           "named": true
         },
         {
           "type": "identifier",
+          "named": true
+        },
+        {
+          "type": "invocation_expression",
+          "named": true
+        },
+        {
+          "type": "member_access_expression",
           "named": true
         },
         {
