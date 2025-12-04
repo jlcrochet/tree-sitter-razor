@@ -532,16 +532,6 @@ module.exports = grammar(csharp, {
     // This ensures preproc directives only match in C# context, not HTML
     // We define a single preproc rule that uses the external token, replacing all specific types
     preproc: $ => $._csharp_preproc,
-    // Hide the original preproc rules by making them never match
-    preproc_region: _ => token(prec(-100, /(?!x)x/)),
-    preproc_endregion: _ => token(prec(-100, /(?!x)x/)),
-    preproc_line: _ => token(prec(-100, /(?!x)x/)),
-    preproc_pragma: _ => token(prec(-100, /(?!x)x/)),
-    preproc_nullable: _ => token(prec(-100, /(?!x)x/)),
-    preproc_error: _ => token(prec(-100, /(?!x)x/)),
-    preproc_warning: _ => token(prec(-100, /(?!x)x/)),
-    preproc_define: _ => token(prec(-100, /(?!x)x/)),
-    preproc_undef: _ => token(prec(-100, /(?!x)x/)),
 
     // =========================================================================
     // Razor Directives
