@@ -1477,6 +1477,10 @@
         {
           "type": "statement",
           "named": true
+        },
+        {
+          "type": "void_element",
+          "named": true
         }
       ]
     }
@@ -1856,6 +1860,10 @@
         },
         {
           "type": "title_element",
+          "named": true
+        },
+        {
+          "type": "void_element",
           "named": true
         }
       ]
@@ -2511,6 +2519,10 @@
         },
         {
           "type": "title_element",
+          "named": true
+        },
+        {
+          "type": "void_element",
           "named": true
         }
       ]
@@ -5550,6 +5562,10 @@
         {
           "type": "statement",
           "named": true
+        },
+        {
+          "type": "void_element",
+          "named": true
         }
       ]
     }
@@ -5584,6 +5600,10 @@
         },
         {
           "type": "statement",
+          "named": true
+        },
+        {
+          "type": "void_element",
           "named": true
         }
       ]
@@ -5956,6 +5976,10 @@
         {
           "type": "title_element",
           "named": true
+        },
+        {
+          "type": "void_element",
+          "named": true
         }
       ]
     }
@@ -6045,6 +6069,10 @@
         },
         {
           "type": "statement",
+          "named": true
+        },
+        {
+          "type": "void_element",
           "named": true
         },
         {
@@ -7530,6 +7558,36 @@
         },
         {
           "type": "tuple_pattern",
+          "named": true
+        }
+      ]
+    }
+  },
+  {
+    "type": "void_element",
+    "named": true,
+    "fields": {
+      "name": {
+        "multiple": false,
+        "required": true,
+        "types": [
+          {
+            "type": "element_name",
+            "named": true
+          }
+        ]
+      }
+    },
+    "children": {
+      "multiple": true,
+      "required": false,
+      "types": [
+        {
+          "type": "html_attribute",
+          "named": true
+        },
+        {
+          "type": "razor_attribute",
           "named": true
         }
       ]

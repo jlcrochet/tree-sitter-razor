@@ -22,9 +22,9 @@ Simple HTML element
       (element_name))))
 
 ================================================================================
-Self-closing element
+Self-closing non-void element
 ================================================================================
-<br/>
+<div/>
 --------------------------------------------------------------------------------
 
 (compilation_unit
@@ -83,9 +83,9 @@ Element with attribute
       (element_name))))
 
 ================================================================================
-Element with multiple attributes
+Non-void element with multiple attributes
 ================================================================================
-<input type="text" id="name" required/>
+<div class="a" id="b" hidden/>
 --------------------------------------------------------------------------------
 
 (compilation_unit
@@ -288,5 +288,336 @@ Textarea with attributes
         (html_attribute_name)
         (html_attribute_value
           (html_quoted_attribute_value))))
+    (textarea_end_tag
+      (element_name))))
+
+================================================================================
+Void element: br
+================================================================================
+<br>
+--------------------------------------------------------------------------------
+
+(compilation_unit
+  (void_element
+    (element_name)))
+
+================================================================================
+Void element: br with optional slash
+================================================================================
+<br/>
+--------------------------------------------------------------------------------
+
+(compilation_unit
+  (void_element
+    (element_name)))
+
+================================================================================
+Void element: hr
+================================================================================
+<hr>
+--------------------------------------------------------------------------------
+
+(compilation_unit
+  (void_element
+    (element_name)))
+
+================================================================================
+Void element: img with attributes
+================================================================================
+<img src="photo.jpg" alt="A photo">
+--------------------------------------------------------------------------------
+
+(compilation_unit
+  (void_element
+    (element_name)
+    (html_attribute
+      (html_attribute_name)
+      (html_attribute_value
+        (html_quoted_attribute_value)))
+    (html_attribute
+      (html_attribute_name)
+      (html_attribute_value
+        (html_quoted_attribute_value)))))
+
+================================================================================
+Void element: input with attributes
+================================================================================
+<input type="text" name="username" required>
+--------------------------------------------------------------------------------
+
+(compilation_unit
+  (void_element
+    (element_name)
+    (html_attribute
+      (html_attribute_name)
+      (html_attribute_value
+        (html_quoted_attribute_value)))
+    (html_attribute
+      (html_attribute_name)
+      (html_attribute_value
+        (html_quoted_attribute_value)))
+    (html_attribute
+      (html_attribute_name))))
+
+================================================================================
+Void element: meta
+================================================================================
+<meta charset="utf-8">
+--------------------------------------------------------------------------------
+
+(compilation_unit
+  (void_element
+    (element_name)
+    (html_attribute
+      (html_attribute_name)
+      (html_attribute_value
+        (html_quoted_attribute_value)))))
+
+================================================================================
+Void element: link
+================================================================================
+<link rel="stylesheet" href="styles.css">
+--------------------------------------------------------------------------------
+
+(compilation_unit
+  (void_element
+    (element_name)
+    (html_attribute
+      (html_attribute_name)
+      (html_attribute_value
+        (html_quoted_attribute_value)))
+    (html_attribute
+      (html_attribute_name)
+      (html_attribute_value
+        (html_quoted_attribute_value)))))
+
+================================================================================
+Void element: base
+================================================================================
+<base href="https://example.com/">
+--------------------------------------------------------------------------------
+
+(compilation_unit
+  (void_element
+    (element_name)
+    (html_attribute
+      (html_attribute_name)
+      (html_attribute_value
+        (html_quoted_attribute_value)))))
+
+================================================================================
+Void element: col
+================================================================================
+<col span="2">
+--------------------------------------------------------------------------------
+
+(compilation_unit
+  (void_element
+    (element_name)
+    (html_attribute
+      (html_attribute_name)
+      (html_attribute_value
+        (html_quoted_attribute_value)))))
+
+================================================================================
+Void element: embed
+================================================================================
+<embed src="video.mp4" type="video/mp4">
+--------------------------------------------------------------------------------
+
+(compilation_unit
+  (void_element
+    (element_name)
+    (html_attribute
+      (html_attribute_name)
+      (html_attribute_value
+        (html_quoted_attribute_value)))
+    (html_attribute
+      (html_attribute_name)
+      (html_attribute_value
+        (html_quoted_attribute_value)))))
+
+================================================================================
+Void element: source
+================================================================================
+<source src="audio.mp3" type="audio/mpeg">
+--------------------------------------------------------------------------------
+
+(compilation_unit
+  (void_element
+    (element_name)
+    (html_attribute
+      (html_attribute_name)
+      (html_attribute_value
+        (html_quoted_attribute_value)))
+    (html_attribute
+      (html_attribute_name)
+      (html_attribute_value
+        (html_quoted_attribute_value)))))
+
+================================================================================
+Void element: track
+================================================================================
+<track src="subtitles.vtt" kind="subtitles">
+--------------------------------------------------------------------------------
+
+(compilation_unit
+  (void_element
+    (element_name)
+    (html_attribute
+      (html_attribute_name)
+      (html_attribute_value
+        (html_quoted_attribute_value)))
+    (html_attribute
+      (html_attribute_name)
+      (html_attribute_value
+        (html_quoted_attribute_value)))))
+
+================================================================================
+Void element: wbr
+================================================================================
+<wbr>
+--------------------------------------------------------------------------------
+
+(compilation_unit
+  (void_element
+    (element_name)))
+
+================================================================================
+Void element: area
+================================================================================
+<area shape="rect" coords="0,0,100,100" href="link.html">
+--------------------------------------------------------------------------------
+
+(compilation_unit
+  (void_element
+    (element_name)
+    (html_attribute
+      (html_attribute_name)
+      (html_attribute_value
+        (html_quoted_attribute_value)))
+    (html_attribute
+      (html_attribute_name)
+      (html_attribute_value
+        (html_quoted_attribute_value)))
+    (html_attribute
+      (html_attribute_name)
+      (html_attribute_value
+        (html_quoted_attribute_value)))))
+
+================================================================================
+Void element inside element
+================================================================================
+<div><br></div>
+--------------------------------------------------------------------------------
+
+(compilation_unit
+  (element
+    (start_tag
+      (element_name))
+    (void_element
+      (element_name))
+    (end_tag
+      (element_name))))
+
+================================================================================
+Multiple void elements
+================================================================================
+<br>
+<hr>
+<br>
+--------------------------------------------------------------------------------
+
+(compilation_unit
+  (void_element
+    (element_name))
+  (void_element
+    (element_name))
+  (void_element
+    (element_name)))
+
+================================================================================
+Void element case insensitive
+================================================================================
+<BR>
+<Hr>
+<iMg src="x.png">
+--------------------------------------------------------------------------------
+
+(compilation_unit
+  (void_element
+    (element_name))
+  (void_element
+    (element_name))
+  (void_element
+    (element_name)
+    (html_attribute
+      (html_attribute_name)
+      (html_attribute_value
+        (html_quoted_attribute_value)))))
+
+================================================================================
+Void element with Tag Helper opt-out
+================================================================================
+<!br>
+--------------------------------------------------------------------------------
+
+(compilation_unit
+  (void_element
+    (element_name)))
+
+================================================================================
+Script element case insensitive
+================================================================================
+<SCRIPT>var x = 1;</SCRIPT>
+--------------------------------------------------------------------------------
+
+(compilation_unit
+  (script_element
+    (script_start_tag
+      (element_name))
+    (script_content)
+    (script_end_tag
+      (element_name))))
+
+================================================================================
+Style element case insensitive
+================================================================================
+<Style>body { color: red; }</Style>
+--------------------------------------------------------------------------------
+
+(compilation_unit
+  (style_element
+    (style_start_tag
+      (element_name))
+    (style_content)
+    (style_end_tag
+      (element_name))))
+
+================================================================================
+Title element case insensitive
+================================================================================
+<TITLE>Page Title</TITLE>
+--------------------------------------------------------------------------------
+
+(compilation_unit
+  (title_element
+    (title_start_tag
+      (element_name))
+    (title_content)
+    (title_end_tag
+      (element_name))))
+
+================================================================================
+Textarea element case insensitive
+================================================================================
+<TextArea>content</TextArea>
+--------------------------------------------------------------------------------
+
+(compilation_unit
+  (textarea_element
+    (textarea_start_tag
+      (element_name))
+    (textarea_content)
     (textarea_end_tag
       (element_name))))

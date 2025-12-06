@@ -3167,6 +3167,10 @@
               },
               {
                 "type": "SYMBOL",
+                "name": "void_element"
+              },
+              {
+                "type": "SYMBOL",
                 "name": "razor_text_literal"
               }
             ]
@@ -11702,6 +11706,10 @@
         },
         {
           "type": "SYMBOL",
+          "name": "void_element"
+        },
+        {
+          "type": "SYMBOL",
           "name": "html_comment"
         },
         {
@@ -11909,6 +11917,10 @@
         {
           "type": "SYMBOL",
           "name": "self_closing_element"
+        },
+        {
+          "type": "SYMBOL",
+          "name": "void_element"
         },
         {
           "type": "SYMBOL",
@@ -12567,6 +12579,139 @@
         }
       ]
     },
+    "void_element": {
+      "type": "SEQ",
+      "members": [
+        {
+          "type": "STRING",
+          "value": "<"
+        },
+        {
+          "type": "CHOICE",
+          "members": [
+            {
+              "type": "SYMBOL",
+              "name": "_tag_helper_opt_out"
+            },
+            {
+              "type": "BLANK"
+            }
+          ]
+        },
+        {
+          "type": "FIELD",
+          "name": "name",
+          "content": {
+            "type": "ALIAS",
+            "content": {
+              "type": "SYMBOL",
+              "name": "_void_element_name"
+            },
+            "named": true,
+            "value": "element_name"
+          }
+        },
+        {
+          "type": "REPEAT",
+          "content": {
+            "type": "SYMBOL",
+            "name": "_html_attribute"
+          }
+        },
+        {
+          "type": "CHOICE",
+          "members": [
+            {
+              "type": "STRING",
+              "value": "/"
+            },
+            {
+              "type": "BLANK"
+            }
+          ]
+        },
+        {
+          "type": "IMMEDIATE_TOKEN",
+          "content": {
+            "type": "STRING",
+            "value": ">"
+          }
+        }
+      ]
+    },
+    "_void_element_name": {
+      "type": "IMMEDIATE_TOKEN",
+      "content": {
+        "type": "CHOICE",
+        "members": [
+          {
+            "type": "PATTERN",
+            "value": "area",
+            "flags": "i"
+          },
+          {
+            "type": "PATTERN",
+            "value": "base",
+            "flags": "i"
+          },
+          {
+            "type": "PATTERN",
+            "value": "br",
+            "flags": "i"
+          },
+          {
+            "type": "PATTERN",
+            "value": "col",
+            "flags": "i"
+          },
+          {
+            "type": "PATTERN",
+            "value": "embed",
+            "flags": "i"
+          },
+          {
+            "type": "PATTERN",
+            "value": "hr",
+            "flags": "i"
+          },
+          {
+            "type": "PATTERN",
+            "value": "img",
+            "flags": "i"
+          },
+          {
+            "type": "PATTERN",
+            "value": "input",
+            "flags": "i"
+          },
+          {
+            "type": "PATTERN",
+            "value": "link",
+            "flags": "i"
+          },
+          {
+            "type": "PATTERN",
+            "value": "meta",
+            "flags": "i"
+          },
+          {
+            "type": "PATTERN",
+            "value": "source",
+            "flags": "i"
+          },
+          {
+            "type": "PATTERN",
+            "value": "track",
+            "flags": "i"
+          },
+          {
+            "type": "PATTERN",
+            "value": "wbr",
+            "flags": "i"
+          }
+        ]
+      }
+    },
     "_element_content": {
       "type": "CHOICE",
       "members": [
@@ -12593,6 +12738,10 @@
         {
           "type": "SYMBOL",
           "name": "self_closing_element"
+        },
+        {
+          "type": "SYMBOL",
+          "name": "void_element"
         },
         {
           "type": "SYMBOL",
@@ -12830,7 +12979,8 @@
               "value": 1,
               "content": {
                 "type": "PATTERN",
-                "value": "[Ss][Cc][Rr][Ii][Pp][Tt]"
+                "value": "script",
+                "flags": "i"
               }
             }
           },
@@ -12866,7 +13016,8 @@
               "value": 1,
               "content": {
                 "type": "PATTERN",
-                "value": "[Ss][Cc][Rr][Ii][Pp][Tt]"
+                "value": "script",
+                "flags": "i"
               }
             }
           },
@@ -12928,7 +13079,8 @@
               "value": 1,
               "content": {
                 "type": "PATTERN",
-                "value": "[Ss][Tt][Yy][Ll][Ee]"
+                "value": "style",
+                "flags": "i"
               }
             }
           },
@@ -12964,7 +13116,8 @@
               "value": 1,
               "content": {
                 "type": "PATTERN",
-                "value": "[Ss][Tt][Yy][Ll][Ee]"
+                "value": "style",
+                "flags": "i"
               }
             }
           },
@@ -13026,7 +13179,8 @@
               "value": 1,
               "content": {
                 "type": "PATTERN",
-                "value": "[Tt][Ii][Tt][Ll][Ee]"
+                "value": "title",
+                "flags": "i"
               }
             }
           },
@@ -13062,7 +13216,8 @@
               "value": 1,
               "content": {
                 "type": "PATTERN",
-                "value": "[Tt][Ii][Tt][Ll][Ee]"
+                "value": "title",
+                "flags": "i"
               }
             }
           },
@@ -13124,7 +13279,8 @@
               "value": 1,
               "content": {
                 "type": "PATTERN",
-                "value": "[Tt][Ee][Xx][Tt][Aa][Rr][Ee][Aa]"
+                "value": "textarea",
+                "flags": "i"
               }
             }
           },
@@ -13160,7 +13316,8 @@
               "value": 1,
               "content": {
                 "type": "PATTERN",
-                "value": "[Tt][Ee][Xx][Tt][Aa][Rr][Ee][Aa]"
+                "value": "textarea",
+                "flags": "i"
               }
             }
           },

@@ -60,7 +60,7 @@ Razor attribute bind
 --------------------------------------------------------------------------------
 
 (compilation_unit
-  (self_closing_element
+  (void_element
     (element_name)
     (razor_attribute
       (html_attribute_name)

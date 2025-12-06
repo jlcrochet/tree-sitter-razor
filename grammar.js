@@ -68,6 +68,7 @@ module.exports = grammar(csharp, {
       $.textarea_element,
       $.element,
       $.self_closing_element,
+      $.void_element,
       $.html_comment,
       $.razor_comment,
       $.razor_directive,
@@ -125,6 +126,7 @@ module.exports = grammar(csharp, {
       $.statement,
       $.element,
       $.self_closing_element,
+      $.void_element,
       $.razor_text_literal,
       $.razor_explicit_expression,
       $.razor_implicit_expression,
@@ -289,6 +291,35 @@ module.exports = grammar(csharp, {
       $.end_tag,
     ),
 
+    // Void elements are HTML elements that cannot have content and must not have an end tag
+    // https://html.spec.whatwg.org/multipage/syntax.html#void-elements
+    // area, base, br, col, embed, hr, img, input, link, meta, source, track, wbr
+    void_element: $ => seq(
+      '<',
+      optional($._tag_helper_opt_out),
+      field('name', alias($._void_element_name, $.element_name)),
+      repeat($._html_attribute),
+      optional('/'),
+      token.immediate('>'),
+    ),
+
+    // Case-insensitive void element names
+    _void_element_name: _ => token.immediate(choice(
+      /area/i,
+      /base/i,
+      /br/i,
+      /col/i,
+      /embed/i,
+      /hr/i,
+      /img/i,
+      /input/i,
+      /link/i,
+      /meta/i,
+      /source/i,
+      /track/i,
+      /wbr/i,
+    )),
+
     // Content inside elements - doesn't need keyword awareness
     _element_content: $ => choice(
       $.script_element,
@@ -297,6 +328,7 @@ module.exports = grammar(csharp, {
       $.textarea_element,
       $.element,
       $.self_closing_element,
+      $.void_element,
       $.html_comment,
       $.razor_comment,
       $.razor_directive,
@@ -354,14 +386,14 @@ module.exports = grammar(csharp, {
 
     script_start_tag: $ => seq(
       '<',
-      alias(token.immediate(prec(1, /[Ss][Cc][Rr][Ii][Pp][Tt]/)), $.element_name),
+      alias(token.immediate(prec(1, /script/i)), $.element_name),
       repeat($._html_attribute),
       '>',
     ),
 
     script_end_tag: $ => seq(
       '</',
-      alias(token.immediate(prec(1, /[Ss][Cc][Rr][Ii][Pp][Tt]/)), $.element_name),
+      alias(token.immediate(prec(1, /script/i)), $.element_name),
       '>',
     ),
 
@@ -377,14 +409,14 @@ module.exports = grammar(csharp, {
 
     style_start_tag: $ => seq(
       '<',
-      alias(token.immediate(prec(1, /[Ss][Tt][Yy][Ll][Ee]/)), $.element_name),
+      alias(token.immediate(prec(1, /style/i)), $.element_name),
       repeat($._html_attribute),
       '>',
     ),
 
     style_end_tag: $ => seq(
       '</',
-      alias(token.immediate(prec(1, /[Ss][Tt][Yy][Ll][Ee]/)), $.element_name),
+      alias(token.immediate(prec(1, /style/i)), $.element_name),
       '>',
     ),
 
@@ -400,14 +432,14 @@ module.exports = grammar(csharp, {
 
     title_start_tag: $ => seq(
       '<',
-      alias(token.immediate(prec(1, /[Tt][Ii][Tt][Ll][Ee]/)), $.element_name),
+      alias(token.immediate(prec(1, /title/i)), $.element_name),
       repeat($._html_attribute),
       '>',
     ),
 
     title_end_tag: $ => seq(
       '</',
-      alias(token.immediate(prec(1, /[Tt][Ii][Tt][Ll][Ee]/)), $.element_name),
+      alias(token.immediate(prec(1, /title/i)), $.element_name),
       '>',
     ),
 
@@ -424,14 +456,14 @@ module.exports = grammar(csharp, {
 
     textarea_start_tag: $ => seq(
       '<',
-      alias(token.immediate(prec(1, /[Tt][Ee][Xx][Tt][Aa][Rr][Ee][Aa]/)), $.element_name),
+      alias(token.immediate(prec(1, /textarea/i)), $.element_name),
       repeat($._html_attribute),
       '>',
     ),
 
     textarea_end_tag: $ => seq(
       '</',
-      alias(token.immediate(prec(1, /[Tt][Ee][Xx][Tt][Aa][Rr][Ee][Aa]/)), $.element_name),
+      alias(token.immediate(prec(1, /textarea/i)), $.element_name),
       '>',
     ),
 
@@ -759,6 +791,7 @@ module.exports = grammar(csharp, {
         $.statement,
         $.element,
         $.self_closing_element,
+        $.void_element,
         $.razor_text_literal,
       )),
       '}',
