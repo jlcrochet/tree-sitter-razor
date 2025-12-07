@@ -40,6 +40,8 @@ enum RazorTokenType {
     STYLE_CONTENT,           // Raw content inside <style> tags
     TITLE_CONTENT,           // Raw content inside <title> tags
     TEXTAREA_CONTENT,        // Raw content inside <textarea> tags
+    // Implicit expression terminator
+    IMPLICIT_EXPR_END,       // Zero-width token that matches when expression should end
 };
 
 // =============================================================================
@@ -220,6 +222,75 @@ bool tree_sitter_razor_external_scanner_scan(void *payload, TSLexer *lexer, cons
     RazorScanner *scanner = (RazorScanner *)payload;
 
     // -------------------------------------------------------------------------
+    // Implicit expression terminator - matches when expression should end
+    // This is a zero-width token that prevents whitespace from being skipped
+    // -------------------------------------------------------------------------
+
+    if (valid_symbols[IMPLICIT_EXPR_END]) {
+        // The expression should end if we see:
+        // - Whitespace (space, tab, newline)
+        // - Characters that aren't valid expression continuations
+        // Valid continuations are: . ?. ( [ (handled by token.immediate in grammar)
+        int32_t c = lexer->lookahead;
+
+        // If we're at whitespace or any character that isn't a continuation,
+        // the expression ends here
+        if (c == ' ' || c == '\t' || c == '\n' || c == '\r' ||
+            c == '<' || c == '@' || c == '"' || c == '\'' ||
+            c == '>' || c == '}' || c == ')' || c == ']' ||
+            c == ',' || c == ';' || c == ':' ||
+            lexer->eof(lexer)) {
+            // Zero-width token - don't advance
+            lexer->result_symbol = IMPLICIT_EXPR_END;
+            return true;
+        }
+
+        // For . and ?. we need to check if they're followed by identifier
+        // If not (e.g., just . at end of line or ". bar"), expression should end
+        if (c == '.') {
+            // Look ahead to see what follows the dot
+            lexer->mark_end(lexer);
+            razor_advance(lexer);  // consume .
+            int32_t after_dot = lexer->lookahead;
+            // If followed by identifier start, let grammar handle member access
+            if (is_unicode_letter(after_dot) || after_dot == '_') {
+                return false;
+            }
+            // Otherwise, dot not followed by identifier - end expression here
+            // (Don't consume the dot - mark_end was set before we advanced)
+            lexer->result_symbol = IMPLICIT_EXPR_END;
+            return true;
+        }
+
+        if (c == '?') {
+            // Check if this is ?. followed by identifier
+            lexer->mark_end(lexer);
+            razor_advance(lexer);  // consume ?
+            if (lexer->lookahead == '.') {
+                razor_advance(lexer);  // consume .
+                int32_t after_dot = lexer->lookahead;
+                // If followed by identifier start, let grammar handle conditional access
+                if (is_unicode_letter(after_dot) || after_dot == '_') {
+                    return false;
+                }
+            }
+            // Not ?. or not followed by identifier - end expression
+            lexer->result_symbol = IMPLICIT_EXPR_END;
+            return true;
+        }
+
+        if (c == '(' || c == '[') {
+            // These continue the expression (invocation/indexer)
+            return false;
+        }
+
+        // Any other character - expression ends
+        // (This includes letters/digits which would be invalid after expression)
+        lexer->result_symbol = IMPLICIT_EXPR_END;
+        return true;
+    }
+
+    // -------------------------------------------------------------------------
     // Razor-specific tokens (HTML context only)
     // -------------------------------------------------------------------------
 
@@ -289,8 +360,9 @@ bool tree_sitter_razor_external_scanner_scan(void *payload, TSLexer *lexer, cons
                 break;
             }
 
-            // Stop at characters that shouldn't be in text (expression continuations)
-            if (lexer->lookahead == '.' || lexer->lookahead == '[' || lexer->lookahead == '(') {
+            // Stop at characters that could be expression continuations
+            // Note: . could be C# qualified name continuation (directives use regular C# . token)
+            if (lexer->lookahead == '[' || lexer->lookahead == '(' || lexer->lookahead == '.') {
                 break;
             }
 

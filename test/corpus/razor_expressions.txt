@@ -11,8 +11,6 @@ Escaped at sign
     (text)
     (escaped_at)
     (text)
-    (text)
-    (text)
     (end_tag
       (element_name))))
 
@@ -253,3 +251,64 @@ Razor implicit expression - null literal
       (null_literal))
     (end_tag
       (element_name))))
+
+================================================================================
+Implicit expression with space before dot terminates expression
+================================================================================
+@foo .bar
+--------------------------------------------------------------------------------
+
+(compilation_unit
+  (razor_implicit_expression
+    (identifier))
+  (text)
+  (text))
+
+================================================================================
+Implicit expression with space after dot terminates expression
+================================================================================
+@foo. bar
+--------------------------------------------------------------------------------
+
+(compilation_unit
+  (razor_implicit_expression
+    (identifier))
+  (text)
+  (text))
+
+================================================================================
+Implicit expression without space continues with member access
+================================================================================
+@foo.bar
+--------------------------------------------------------------------------------
+
+(compilation_unit
+  (razor_implicit_expression
+    (member_access_expression
+      expression: (identifier)
+      name: (identifier))))
+
+================================================================================
+Implicit expression with conditional access and no space
+================================================================================
+@foo?.bar
+--------------------------------------------------------------------------------
+
+(compilation_unit
+  (razor_implicit_expression
+    (conditional_access_expression
+      expression: (identifier)
+      name: (identifier))))
+
+================================================================================
+Implicit expression with space before conditional access terminates
+================================================================================
+@foo ?.bar
+--------------------------------------------------------------------------------
+
+(compilation_unit
+  (razor_implicit_expression
+    (identifier))
+  (text)
+  (text)
+  (text))

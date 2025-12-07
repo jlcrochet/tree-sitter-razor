@@ -30,7 +30,9 @@ module.exports = grammar(csharp, {
     ];
     const filtered = original.filter(rule => {
       // Keep rules that aren't the old preproc rules
-      return !oldPreprocs.some(name => rule.name === name);
+      if (oldPreprocs.some(name => rule.name === name)) return false;
+      // Keep whitespace in extras - it's required for C# parsing
+      return true;
     });
     return filtered.concat([$.preproc]);
   },
@@ -52,6 +54,8 @@ module.exports = grammar(csharp, {
     $._style_content,               // Raw content inside <style> tags
     $._title_content,               // Raw content inside <title> tags
     $._textarea_content,            // Raw content inside <textarea> tags
+    // Implicit expression terminator - detects whitespace after identifier
+    $._implicit_expr_end,           // Zero-width token that matches when whitespace follows
   ]),
 
   rules: {
@@ -592,7 +596,8 @@ module.exports = grammar(csharp, {
     ),
 
     // @page takes a route pattern as a string literal
-    razor_page_directive: $ => seq('@page', optional($.string_literal)),
+    // Use prec.right to prefer continuing with string_literal over reducing early
+    razor_page_directive: $ => prec.right(seq('@page', optional($.string_literal))),
 
     razor_model_directive: $ => seq('@model', $.type),
 
@@ -698,10 +703,12 @@ module.exports = grammar(csharp, {
     )),
 
     // Implicit expression: @identifier, @identifier.property, @identifier.Method()
-    // Use prec.dynamic to allow runtime conflict resolution
+    // The _implicit_expr_end token is zero-width and matches when whitespace or
+    // a non-continuation character follows, forcing the expression to end
     razor_implicit_expression: $ => seq(
       '@',
       $._razor_implicit_expr_chain,
+      $._implicit_expr_end,
     ),
 
     // Chain of member access, method calls, and indexers starting from identifier
@@ -738,10 +745,12 @@ module.exports = grammar(csharp, {
     ),
 
     // Member access: expr.identifier
+    // Uses token.immediate() to prevent whitespace before dot and identifier
+    // The _implicit_expr_end scanner detects when . isn't followed by identifier
     _razor_member_access: $ => prec.left(seq(
       field('expression', $._razor_primary_expression),
-      '.',
-      field('name', $.identifier),
+      token.immediate('.'),
+      field('name', alias(token.immediate(/[_\p{L}][_\p{L}\p{N}]*/u), $.identifier)),
     )),
 
     // Invocation: expr(args) or expr.method(args)
@@ -759,10 +768,11 @@ module.exports = grammar(csharp, {
     )),
 
     // Conditional access: expr?.identifier
+    // Uses token.immediate() to prevent whitespace before ?. and identifier
     _razor_conditional_access: $ => prec.left(seq(
       field('expression', $._razor_primary_expression),
-      '?.',
-      field('name', $.identifier),
+      token.immediate('?.'),
+      field('name', alias(token.immediate(/[_\p{L}][_\p{L}\p{N}]*/u), $.identifier)),
     )),
 
     // =========================================================================
@@ -808,20 +818,29 @@ module.exports = grammar(csharp, {
       prec(1, alias($._text_with_literal_at, $.text)),
       // Main text content - uses external scanner to be keyword-aware
       alias($._html_text_content, $.text),
-      // Punctuation that could be expression continuations
-      prec(-20, /[.\[(]/),
+      // Fallback for text that doesn't start with keyword characters
+      // Excludes: e/c/f (keywords), < (HTML), @ (Razor), [ ( (expression), \n, " ' (strings), whitespace, . (C# qualified names)
+      alias(prec(-100, /[^ecf.<@\[(\n"'\s][^.<@\[(\n"']*/), $.text),
+      // Single non-keyword-starting character (also excludes quotes, whitespace, dot)
+      alias(prec(-101, /[^ecf.<@\[(\n"'\s]/), $.text),
+      // Punctuation [ and ( that could be expression continuations
+      alias(prec(-102, /[\[(]/), $.text),
+      // Dot as text - lowest precedence, only matches when nothing else can
+      // This handles cases like "@foo .bar" where the dot is text after an expression
+      alias(prec(-200, /\./), $.text),
     ),
 
     // Text inside elements - doesn't need to stop at keywords
-    // Also excludes . [ ( which are handled separately for implicit expression chaining
+    // Excludes [ ( which are handled separately for implicit expression chaining
+    // Note: . is allowed since implicit expressions use token.immediate('.')
     text: $ => choice(
       // Text containing literal @ (email addresses like user@example.com)
       prec(1, alias($._text_with_literal_at, $.text)),
-      // Regular text content
-      prec(-10, /[^<@.\[(]+/),
+      // Regular text content - includes . since implicit expressions handle it
+      prec(-10, /[^<@\[(]+/),
       // Punctuation that could be expression continuations, but parsed as text
       // when not following an identifier (lower precedence than implicit expressions)
-      prec(-20, /[.\[(]/),
+      prec(-20, /[\[(]/),
     ),
 
   },
