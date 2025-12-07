@@ -22,19 +22,17 @@ module.exports = grammar(csharp, {
   ]),
 
   extras: ($, original) => {
-    // Replace the individual preproc rules with our unified preproc rule
-    // Filter out the old preproc rules and add our new one
+    // Filter out the old preproc rules - we handle preproc explicitly in _razor_statement
     const oldPreprocs = [
       'preproc_region', 'preproc_endregion', 'preproc_line', 'preproc_pragma',
       'preproc_nullable', 'preproc_error', 'preproc_warning', 'preproc_define', 'preproc_undef'
     ];
-    const filtered = original.filter(rule => {
+    return original.filter(rule => {
       // Keep rules that aren't the old preproc rules
       if (oldPreprocs.some(name => rule.name === name)) return false;
       // Keep whitespace in extras - it's required for C# parsing
       return true;
     });
-    return filtered.concat([$.preproc]);
   },
 
   externals: ($, original) => original.concat([
@@ -56,6 +54,20 @@ module.exports = grammar(csharp, {
     $._textarea_content,            // Raw content inside <textarea> tags
     // Implicit expression terminator - detects whitespace after identifier
     $._implicit_expr_end,           // Zero-width token that matches when whitespace follows
+    // @ token in Razor block context (to prevent C# @identifier tokenization)
+    $._razor_block_at,              // @ in Razor block - starts nested Razor construct
+    // @keyword tokens - these match @if, @for, etc. as single tokens to beat C# verbatim identifiers
+    $._razor_at_if,
+    $._razor_at_for,
+    $._razor_at_foreach,
+    $._razor_at_while,
+    $._razor_at_do,
+    $._razor_at_switch,
+    $._razor_at_try,
+    $._razor_at_lock,
+    $._razor_at_using,
+    // Using directive: zero-width token that matches when NOT followed by = or .
+    $._using_not_alias,
   ]),
 
   rules: {
@@ -100,10 +112,11 @@ module.exports = grammar(csharp, {
     // =========================================================================
 
     // Razor statement is @ followed by a C# statement
-    razor_statement: $ => seq(
+    // Higher precedence than razor_implicit_expression to ensure @if is parsed as control flow
+    razor_statement: $ => prec(10, seq(
       '@',
       $._razor_supported_statement,
-    ),
+    )),
 
     _razor_supported_statement: $ => choice(
       alias($.razor_if_statement, $.if_statement),
@@ -127,13 +140,61 @@ module.exports = grammar(csharp, {
 
     // Content inside Razor blocks - can contain C# statements, HTML elements, and Razor expressions
     _razor_block_content: $ => choice(
-      $.statement,
+      $._razor_statement,
+      $._nested_razor_statement,  // Razor control flow like @if, @foreach, etc. (uses external @ token)
       $.element,
       $.self_closing_element,
       $.void_element,
       $.razor_text_literal,
-      $.razor_explicit_expression,
-      $.razor_implicit_expression,
+      $._nested_razor_explicit_expression,
+      $._nested_razor_implicit_expression,
+    ),
+
+    // Nested Razor statement inside a block - uses external @keyword tokens to prevent C# @identifier tokenization
+    // The external scanner matches @if/@for/etc. as single tokens that are longer than C# verbatim identifiers
+    _nested_razor_statement: $ => choice(
+      seq(alias($._razor_at_if, '@'), alias($.razor_if_statement, $.if_statement)),
+      seq(alias($._razor_at_for, '@'), alias($.razor_for_statement, $.for_statement)),
+      seq(alias($._razor_at_foreach, '@'), alias($.razor_foreach_statement, $.foreach_statement)),
+      seq(alias($._razor_at_while, '@'), alias($.razor_while_statement, $.while_statement)),
+      seq(alias($._razor_at_do, '@'), alias($.razor_do_statement, $.do_statement)),
+      seq(alias($._razor_at_switch, '@'), alias($.razor_switch_statement, $.switch_statement)),
+      seq(alias($._razor_at_try, '@'), alias($.razor_try_statement, $.try_statement)),
+      seq(alias($._razor_at_lock, '@'), alias($.razor_lock_statement, $.lock_statement)),
+      seq(alias($._razor_at_using, '@'), alias($.razor_using_statement, $.using_statement)),
+    ),
+
+    // Nested Razor expressions inside a block - uses external @ token
+    _nested_razor_explicit_expression: $ => prec.dynamic(100, seq(
+      alias($._razor_block_at, '@'),
+      '(',
+      $.expression,
+      ')',
+    )),
+
+    // Lower precedence than _nested_razor_statement to ensure @if/@for/etc. are parsed as statements
+    _nested_razor_implicit_expression: $ => prec.dynamic(-100, seq(
+      alias($._razor_block_at, '@'),
+      $._razor_implicit_expr_chain,
+      $._implicit_expr_end,
+    )),
+
+    // Statements valid inside Razor code blocks (function body context)
+    // This is more restrictive than C#'s full statement rule, excluding:
+    // - break/continue (only valid in loops, but those have their own blocks)
+    // - return/yield (Razor blocks aren't functions that return values)
+    // - goto/labeled_statement (discouraged/rare in Razor)
+    // - unsafe/fixed/checked (low-level constructs not typical in Razor)
+    // NOTE: Control flow statements (if, for, foreach, while, do, switch, try, lock, using)
+    // are handled by _nested_razor_statement with @ prefix, not included here
+    _razor_statement: $ => choice(
+      $.block,
+      $.empty_statement,
+      $.expression_statement,
+      $.local_declaration_statement,
+      $.local_function_statement,
+      $.throw_statement,
+      $.preproc,
     ),
 
     // @: for single-line text literals inside code blocks
@@ -145,7 +206,8 @@ module.exports = grammar(csharp, {
 
     _razor_text_literal_content: $ => prec.right(10, choice(
       // Plain text (anything except @ and newline)
-      /[^@\r\n]+/,
+      // High token precedence to beat C# identifier in extras
+      token(prec(100, /[^@\r\n]+/)),
       // Razor expressions within text literal
       alias($._text_literal_explicit_expression, $.razor_explicit_expression),
       alias($._text_literal_implicit_expression, $.razor_implicit_expression),
@@ -243,8 +305,21 @@ module.exports = grammar(csharp, {
         'default',
       ),
       ':',
-      repeat($._razor_block_content),
+      repeat($._razor_switch_section_content),
     )),
+
+    // Content inside switch sections - same as _razor_block_content but allows break
+    _razor_switch_section_content: $ => choice(
+      $._razor_statement,
+      $._nested_razor_statement,  // Razor control flow like @if, @foreach, etc. (uses external @ token)
+      $.break_statement,
+      $.element,
+      $.self_closing_element,
+      $.void_element,
+      $.razor_text_literal,
+      $._nested_razor_explicit_expression,
+      $._nested_razor_implicit_expression,
+    ),
 
     // Razor try statement
     // Uses prec.right so that catch/finally following the block are associated with this try
@@ -372,9 +447,10 @@ module.exports = grammar(csharp, {
     _tag_helper_opt_out: _ => token.immediate('!'),
 
     // Element name that must immediately follow < or </ (or ! if opt-out)
-    _immediate_element_name: _ => token.immediate(/[a-zA-Z][a-zA-Z0-9:-]*/),
+    // Includes . for Blazor fully-qualified component names like NTExtractor.Components.Admin.Extractor
+    _immediate_element_name: _ => token.immediate(/[a-zA-Z][a-zA-Z0-9.:-]*/),
 
-    element_name: _ => /[a-zA-Z][a-zA-Z0-9:-]*/,
+    element_name: _ => /[a-zA-Z][a-zA-Z0-9.:-]*/,
 
     // =========================================================================
     // Script and Style Elements
@@ -526,7 +602,16 @@ module.exports = grammar(csharp, {
       $.razor_implicit_expression,
     )),
 
-    html_unquoted_attribute_value: _ => /[^\s"'=<>`]+/,
+    // Unquoted attribute value - can be plain text or Razor expressions
+    // In Blazor, you often see: Property=@(s => s.Id) or Items=@Model.Items
+    html_unquoted_attribute_value: $ => choice(
+      // Razor explicit expression as unquoted value: Property=@(s => s.Id)
+      $.razor_explicit_expression,
+      // Razor implicit expression as unquoted value: Items=@Model.Items
+      $.razor_implicit_expression,
+      // Plain unquoted value (no @ or Razor): class=my-class
+      /[^\s"'=<>`@]+/,
+    ),
 
     // Razor-specific attribute (e.g., @onclick, @bind)
     razor_attribute: $ => choice(
@@ -601,10 +686,33 @@ module.exports = grammar(csharp, {
 
     razor_model_directive: $ => seq('@model', $.type),
 
-    // @using directive (imports namespace)
+    // @using directive (imports namespace or creates alias)
     // The statement form is @using (...) which starts with ( after 'using'
-    // The directive form is @using Namespace which has a name after 'using'
-    razor_using_directive: $ => prec(1, seq('@', 'using', $._name)),
+    // The directive form is @using Namespace or @using Alias = Type
+    razor_using_directive: $ => prec(1, seq(
+      '@',
+      'using',
+      choice(
+        // Static import: @using static Type
+        seq('static', $._name),
+        // Qualified namespace: @using Namespace.SubNamespace
+        $.qualified_name,
+        // Alias form: @using Alias = Type (higher dynamic precedence wins when = follows)
+        $._using_alias,
+        // Simple namespace: @using Identifier
+        $._using_simple,
+      ),
+    )),
+
+    // Helper rules for using directive
+    _using_alias: $ => seq(
+      field('alias', $.identifier),
+      '=',
+      field('type', $.type),
+    ),
+
+    // Simple form - uses external scanner to ensure NOT followed by = or .
+    _using_simple: $ => seq($.identifier, $._using_not_alias),
 
     razor_inject_directive: $ => seq('@inject', $.type, $.identifier),
 
@@ -643,7 +751,7 @@ module.exports = grammar(csharp, {
 
     razor_preservewhitespace_directive: $ => seq('@preservewhitespace', $.boolean_literal),
 
-    razor_rendermode_directive: $ => seq('@rendermode', $.expression),
+    razor_rendermode_directive: $ => seq('@rendermode', $.identifier),
 
     // @addTagHelper typePattern, assemblyName
     // e.g., @addTagHelper *, Microsoft.AspNetCore.Mvc.TagHelpers
@@ -795,8 +903,9 @@ module.exports = grammar(csharp, {
 
     // Override block to allow HTML elements inside nested C# blocks
     // This is needed for HTML inside local functions, lambdas, etc.
+    // Uses context-tracking tokens to properly track C# vs HTML mode
     block: $ => seq(
-      '{',
+      alias($._razor_block_open, '{'),
       repeat(choice(
         $.statement,
         $.element,
@@ -804,7 +913,7 @@ module.exports = grammar(csharp, {
         $.void_element,
         $.razor_text_literal,
       )),
-      '}',
+      alias($._csharp_context_close, '}'),
     ),
 
     // =========================================================================

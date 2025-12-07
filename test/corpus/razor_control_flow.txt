@@ -322,6 +322,66 @@ Lock statement
             (element_name)))))))
 
 ================================================================================
+Nested if statement in Razor block
+================================================================================
+@if (!outer)
+{
+    @if (inner != null)
+    {
+        <p>Content</p>
+    }
+}
+--------------------------------------------------------------------------------
+
+(compilation_unit
+  (razor_statement
+    (if_statement
+      (prefix_unary_expression
+        (identifier))
+      (razor_block
+        (if_statement
+          (binary_expression
+            (identifier)
+            (null_literal))
+          (razor_block
+            (element
+              (start_tag
+                (element_name))
+              (text)
+              (end_tag
+                (element_name)))))))))
+
+================================================================================
+Nested foreach in if statement
+================================================================================
+@if (hasItems)
+{
+    @foreach (var item in items)
+    {
+        <li>@item</li>
+    }
+}
+--------------------------------------------------------------------------------
+
+(compilation_unit
+  (razor_statement
+    (if_statement
+      (identifier)
+      (razor_block
+        (foreach_statement
+          (implicit_type)
+          (identifier)
+          (identifier)
+          (razor_block
+            (element
+              (start_tag
+                (element_name))
+              (razor_implicit_expression
+                (identifier))
+              (end_tag
+                (element_name)))))))))
+
+================================================================================
 Switch statement
 ================================================================================
 @switch (status)

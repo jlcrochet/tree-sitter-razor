@@ -34,6 +34,33 @@ Using directive
       (identifier))))
 
 ================================================================================
+Using directive with alias
+================================================================================
+@using MyAlias = System.Collections.Generic.List
+--------------------------------------------------------------------------------
+
+(compilation_unit
+  (razor_using_directive
+    alias: (identifier)
+    type: (qualified_name
+      qualifier: (qualified_name
+        qualifier: (qualified_name
+          qualifier: (identifier)
+          name: (identifier))
+        name: (identifier))
+      name: (identifier))))
+
+================================================================================
+Using directive with simple namespace
+================================================================================
+@using System
+--------------------------------------------------------------------------------
+
+(compilation_unit
+  (razor_using_directive
+    (identifier)))
+
+================================================================================
 Inject directive
 ================================================================================
 @inject ILogger<Index> Logger

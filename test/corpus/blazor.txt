@@ -133,6 +133,44 @@ Multiple expressions in attribute
       (element_name))))
 
 ================================================================================
+Unquoted attribute with explicit expression
+================================================================================
+<PropertyColumn Property=@(s => s.Id) />
+--------------------------------------------------------------------------------
+
+(compilation_unit
+  (self_closing_element
+    (element_name)
+    (html_attribute
+      (html_attribute_name)
+      (html_attribute_value
+        (html_unquoted_attribute_value
+          (razor_explicit_expression
+            (lambda_expression
+              (implicit_parameter)
+              (member_access_expression
+                (identifier)
+                (identifier)))))))))
+
+================================================================================
+Unquoted attribute with implicit expression
+================================================================================
+<FluentDataGrid Items=@Model.Items />
+--------------------------------------------------------------------------------
+
+(compilation_unit
+  (self_closing_element
+    (element_name)
+    (html_attribute
+      (html_attribute_name)
+      (html_attribute_value
+        (html_unquoted_attribute_value
+          (razor_implicit_expression
+            (member_access_expression
+              (identifier)
+              (identifier))))))))
+
+================================================================================
 Await expression
 ================================================================================
 <p>@await LoadDataAsync()</p>

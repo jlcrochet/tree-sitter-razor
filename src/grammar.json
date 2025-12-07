@@ -3145,7 +3145,12 @@
       "type": "SEQ",
       "members": [
         {
-          "type": "STRING",
+          "type": "ALIAS",
+          "content": {
+            "type": "SYMBOL",
+            "name": "_razor_block_open"
+          },
+          "named": false,
           "value": "{"
         },
         {
@@ -3177,7 +3182,12 @@
           }
         },
         {
-          "type": "STRING",
+          "type": "ALIAS",
+          "content": {
+            "type": "SYMBOL",
+            "name": "_csharp_context_close"
+          },
+          "named": false,
           "value": "}"
         }
       ]
@@ -11775,17 +11785,21 @@
       "value": "@@"
     },
     "razor_statement": {
-      "type": "SEQ",
-      "members": [
-        {
-          "type": "STRING",
-          "value": "@"
-        },
-        {
-          "type": "SYMBOL",
-          "name": "_razor_supported_statement"
-        }
-      ]
+      "type": "PREC",
+      "value": 10,
+      "content": {
+        "type": "SEQ",
+        "members": [
+          {
+            "type": "STRING",
+            "value": "@"
+          },
+          {
+            "type": "SYMBOL",
+            "name": "_razor_supported_statement"
+          }
+        ]
+      }
     },
     "_razor_supported_statement": {
       "type": "CHOICE",
@@ -11908,7 +11922,11 @@
       "members": [
         {
           "type": "SYMBOL",
-          "name": "statement"
+          "name": "_razor_statement"
+        },
+        {
+          "type": "SYMBOL",
+          "name": "_nested_razor_statement"
         },
         {
           "type": "SYMBOL",
@@ -11928,11 +11946,312 @@
         },
         {
           "type": "SYMBOL",
-          "name": "razor_explicit_expression"
+          "name": "_nested_razor_explicit_expression"
         },
         {
           "type": "SYMBOL",
-          "name": "razor_implicit_expression"
+          "name": "_nested_razor_implicit_expression"
+        }
+      ]
+    },
+    "_nested_razor_statement": {
+      "type": "CHOICE",
+      "members": [
+        {
+          "type": "SEQ",
+          "members": [
+            {
+              "type": "ALIAS",
+              "content": {
+                "type": "SYMBOL",
+                "name": "_razor_at_if"
+              },
+              "named": false,
+              "value": "@"
+            },
+            {
+              "type": "ALIAS",
+              "content": {
+                "type": "SYMBOL",
+                "name": "razor_if_statement"
+              },
+              "named": true,
+              "value": "if_statement"
+            }
+          ]
+        },
+        {
+          "type": "SEQ",
+          "members": [
+            {
+              "type": "ALIAS",
+              "content": {
+                "type": "SYMBOL",
+                "name": "_razor_at_for"
+              },
+              "named": false,
+              "value": "@"
+            },
+            {
+              "type": "ALIAS",
+              "content": {
+                "type": "SYMBOL",
+                "name": "razor_for_statement"
+              },
+              "named": true,
+              "value": "for_statement"
+            }
+          ]
+        },
+        {
+          "type": "SEQ",
+          "members": [
+            {
+              "type": "ALIAS",
+              "content": {
+                "type": "SYMBOL",
+                "name": "_razor_at_foreach"
+              },
+              "named": false,
+              "value": "@"
+            },
+            {
+              "type": "ALIAS",
+              "content": {
+                "type": "SYMBOL",
+                "name": "razor_foreach_statement"
+              },
+              "named": true,
+              "value": "foreach_statement"
+            }
+          ]
+        },
+        {
+          "type": "SEQ",
+          "members": [
+            {
+              "type": "ALIAS",
+              "content": {
+                "type": "SYMBOL",
+                "name": "_razor_at_while"
+              },
+              "named": false,
+              "value": "@"
+            },
+            {
+              "type": "ALIAS",
+              "content": {
+                "type": "SYMBOL",
+                "name": "razor_while_statement"
+              },
+              "named": true,
+              "value": "while_statement"
+            }
+          ]
+        },
+        {
+          "type": "SEQ",
+          "members": [
+            {
+              "type": "ALIAS",
+              "content": {
+                "type": "SYMBOL",
+                "name": "_razor_at_do"
+              },
+              "named": false,
+              "value": "@"
+            },
+            {
+              "type": "ALIAS",
+              "content": {
+                "type": "SYMBOL",
+                "name": "razor_do_statement"
+              },
+              "named": true,
+              "value": "do_statement"
+            }
+          ]
+        },
+        {
+          "type": "SEQ",
+          "members": [
+            {
+              "type": "ALIAS",
+              "content": {
+                "type": "SYMBOL",
+                "name": "_razor_at_switch"
+              },
+              "named": false,
+              "value": "@"
+            },
+            {
+              "type": "ALIAS",
+              "content": {
+                "type": "SYMBOL",
+                "name": "razor_switch_statement"
+              },
+              "named": true,
+              "value": "switch_statement"
+            }
+          ]
+        },
+        {
+          "type": "SEQ",
+          "members": [
+            {
+              "type": "ALIAS",
+              "content": {
+                "type": "SYMBOL",
+                "name": "_razor_at_try"
+              },
+              "named": false,
+              "value": "@"
+            },
+            {
+              "type": "ALIAS",
+              "content": {
+                "type": "SYMBOL",
+                "name": "razor_try_statement"
+              },
+              "named": true,
+              "value": "try_statement"
+            }
+          ]
+        },
+        {
+          "type": "SEQ",
+          "members": [
+            {
+              "type": "ALIAS",
+              "content": {
+                "type": "SYMBOL",
+                "name": "_razor_at_lock"
+              },
+              "named": false,
+              "value": "@"
+            },
+            {
+              "type": "ALIAS",
+              "content": {
+                "type": "SYMBOL",
+                "name": "razor_lock_statement"
+              },
+              "named": true,
+              "value": "lock_statement"
+            }
+          ]
+        },
+        {
+          "type": "SEQ",
+          "members": [
+            {
+              "type": "ALIAS",
+              "content": {
+                "type": "SYMBOL",
+                "name": "_razor_at_using"
+              },
+              "named": false,
+              "value": "@"
+            },
+            {
+              "type": "ALIAS",
+              "content": {
+                "type": "SYMBOL",
+                "name": "razor_using_statement"
+              },
+              "named": true,
+              "value": "using_statement"
+            }
+          ]
+        }
+      ]
+    },
+    "_nested_razor_explicit_expression": {
+      "type": "PREC_DYNAMIC",
+      "value": 100,
+      "content": {
+        "type": "SEQ",
+        "members": [
+          {
+            "type": "ALIAS",
+            "content": {
+              "type": "SYMBOL",
+              "name": "_razor_block_at"
+            },
+            "named": false,
+            "value": "@"
+          },
+          {
+            "type": "STRING",
+            "value": "("
+          },
+          {
+            "type": "SYMBOL",
+            "name": "expression"
+          },
+          {
+            "type": "STRING",
+            "value": ")"
+          }
+        ]
+      }
+    },
+    "_nested_razor_implicit_expression": {
+      "type": "PREC_DYNAMIC",
+      "value": -100,
+      "content": {
+        "type": "SEQ",
+        "members": [
+          {
+            "type": "ALIAS",
+            "content": {
+              "type": "SYMBOL",
+              "name": "_razor_block_at"
+            },
+            "named": false,
+            "value": "@"
+          },
+          {
+            "type": "SYMBOL",
+            "name": "_razor_implicit_expr_chain"
+          },
+          {
+            "type": "SYMBOL",
+            "name": "_implicit_expr_end"
+          }
+        ]
+      }
+    },
+    "_razor_statement": {
+      "type": "CHOICE",
+      "members": [
+        {
+          "type": "SYMBOL",
+          "name": "block"
+        },
+        {
+          "type": "SYMBOL",
+          "name": "empty_statement"
+        },
+        {
+          "type": "SYMBOL",
+          "name": "expression_statement"
+        },
+        {
+          "type": "SYMBOL",
+          "name": "local_declaration_statement"
+        },
+        {
+          "type": "SYMBOL",
+          "name": "local_function_statement"
+        },
+        {
+          "type": "SYMBOL",
+          "name": "throw_statement"
+        },
+        {
+          "type": "SYMBOL",
+          "name": "preproc"
         }
       ]
     },
@@ -11967,8 +12286,15 @@
         "type": "CHOICE",
         "members": [
           {
-            "type": "PATTERN",
-            "value": "[^@\\r\\n]+"
+            "type": "TOKEN",
+            "content": {
+              "type": "PREC",
+              "value": 100,
+              "content": {
+                "type": "PATTERN",
+                "value": "[^@\\r\\n]+"
+              }
+            }
           },
           {
             "type": "ALIAS",
@@ -12377,11 +12703,52 @@
             "type": "REPEAT",
             "content": {
               "type": "SYMBOL",
-              "name": "_razor_block_content"
+              "name": "_razor_switch_section_content"
             }
           }
         ]
       }
+    },
+    "_razor_switch_section_content": {
+      "type": "CHOICE",
+      "members": [
+        {
+          "type": "SYMBOL",
+          "name": "_razor_statement"
+        },
+        {
+          "type": "SYMBOL",
+          "name": "_nested_razor_statement"
+        },
+        {
+          "type": "SYMBOL",
+          "name": "break_statement"
+        },
+        {
+          "type": "SYMBOL",
+          "name": "element"
+        },
+        {
+          "type": "SYMBOL",
+          "name": "self_closing_element"
+        },
+        {
+          "type": "SYMBOL",
+          "name": "void_element"
+        },
+        {
+          "type": "SYMBOL",
+          "name": "razor_text_literal"
+        },
+        {
+          "type": "SYMBOL",
+          "name": "_nested_razor_explicit_expression"
+        },
+        {
+          "type": "SYMBOL",
+          "name": "_nested_razor_implicit_expression"
+        }
+      ]
     },
     "razor_try_statement": {
       "type": "PREC_RIGHT",
@@ -12927,12 +13294,12 @@
       "type": "IMMEDIATE_TOKEN",
       "content": {
         "type": "PATTERN",
-        "value": "[a-zA-Z][a-zA-Z0-9:-]*"
+        "value": "[a-zA-Z][a-zA-Z0-9.:-]*"
       }
     },
     "element_name": {
       "type": "PATTERN",
-      "value": "[a-zA-Z][a-zA-Z0-9:-]*"
+      "value": "[a-zA-Z][a-zA-Z0-9.:-]*"
     },
     "script_element": {
       "type": "PREC",
@@ -13494,8 +13861,21 @@
       }
     },
     "html_unquoted_attribute_value": {
-      "type": "PATTERN",
-      "value": "[^\\s\"'=<>`]+"
+      "type": "CHOICE",
+      "members": [
+        {
+          "type": "SYMBOL",
+          "name": "razor_explicit_expression"
+        },
+        {
+          "type": "SYMBOL",
+          "name": "razor_implicit_expression"
+        },
+        {
+          "type": "PATTERN",
+          "value": "[^\\s\"'=<>`@]+"
+        }
+      ]
     },
     "razor_attribute": {
       "type": "CHOICE",
@@ -13710,11 +14090,75 @@
             "value": "using"
           },
           {
-            "type": "SYMBOL",
-            "name": "_name"
+            "type": "CHOICE",
+            "members": [
+              {
+                "type": "SEQ",
+                "members": [
+                  {
+                    "type": "STRING",
+                    "value": "static"
+                  },
+                  {
+                    "type": "SYMBOL",
+                    "name": "_name"
+                  }
+                ]
+              },
+              {
+                "type": "SYMBOL",
+                "name": "qualified_name"
+              },
+              {
+                "type": "SYMBOL",
+                "name": "_using_alias"
+              },
+              {
+                "type": "SYMBOL",
+                "name": "_using_simple"
+              }
+            ]
           }
         ]
       }
+    },
+    "_using_alias": {
+      "type": "SEQ",
+      "members": [
+        {
+          "type": "FIELD",
+          "name": "alias",
+          "content": {
+            "type": "SYMBOL",
+            "name": "identifier"
+          }
+        },
+        {
+          "type": "STRING",
+          "value": "="
+        },
+        {
+          "type": "FIELD",
+          "name": "type",
+          "content": {
+            "type": "SYMBOL",
+            "name": "type"
+          }
+        }
+      ]
+    },
+    "_using_simple": {
+      "type": "SEQ",
+      "members": [
+        {
+          "type": "SYMBOL",
+          "name": "identifier"
+        },
+        {
+          "type": "SYMBOL",
+          "name": "_using_not_alias"
+        }
+      ]
     },
     "razor_inject_directive": {
       "type": "SEQ",
@@ -13899,7 +14343,7 @@
         },
         {
           "type": "SYMBOL",
-          "name": "expression"
+          "name": "identifier"
         }
       ]
     },
@@ -14460,10 +14904,6 @@
     {
       "type": "SYMBOL",
       "name": "comment"
-    },
-    {
-      "type": "SYMBOL",
-      "name": "preproc"
     }
   ],
   "conflicts": [
@@ -14766,6 +15206,50 @@
     {
       "type": "SYMBOL",
       "name": "_implicit_expr_end"
+    },
+    {
+      "type": "SYMBOL",
+      "name": "_razor_block_at"
+    },
+    {
+      "type": "SYMBOL",
+      "name": "_razor_at_if"
+    },
+    {
+      "type": "SYMBOL",
+      "name": "_razor_at_for"
+    },
+    {
+      "type": "SYMBOL",
+      "name": "_razor_at_foreach"
+    },
+    {
+      "type": "SYMBOL",
+      "name": "_razor_at_while"
+    },
+    {
+      "type": "SYMBOL",
+      "name": "_razor_at_do"
+    },
+    {
+      "type": "SYMBOL",
+      "name": "_razor_at_switch"
+    },
+    {
+      "type": "SYMBOL",
+      "name": "_razor_at_try"
+    },
+    {
+      "type": "SYMBOL",
+      "name": "_razor_at_lock"
+    },
+    {
+      "type": "SYMBOL",
+      "name": "_razor_at_using"
+    },
+    {
+      "type": "SYMBOL",
+      "name": "_using_not_alias"
     }
   ],
   "inline": [

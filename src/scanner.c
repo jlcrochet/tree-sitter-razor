@@ -42,6 +42,20 @@ enum RazorTokenType {
     TEXTAREA_CONTENT,        // Raw content inside <textarea> tags
     // Implicit expression terminator
     IMPLICIT_EXPR_END,       // Zero-width token that matches when expression should end
+    // @ in Razor block context
+    RAZOR_BLOCK_AT,          // @ inside a Razor block - starts nested Razor construct
+    // @keyword tokens for control flow in Razor blocks
+    RAZOR_AT_IF,             // @if
+    RAZOR_AT_FOR,            // @for
+    RAZOR_AT_FOREACH,        // @foreach
+    RAZOR_AT_WHILE,          // @while
+    RAZOR_AT_DO,             // @do
+    RAZOR_AT_SWITCH,         // @switch
+    RAZOR_AT_TRY,            // @try
+    RAZOR_AT_LOCK,           // @lock
+    RAZOR_AT_USING,          // @using (statement form)
+    // Using directive lookahead
+    USING_NOT_ALIAS,         // Zero-width token that matches when NOT followed by = or .
 };
 
 // =============================================================================
@@ -222,11 +236,38 @@ bool tree_sitter_razor_external_scanner_scan(void *payload, TSLexer *lexer, cons
     RazorScanner *scanner = (RazorScanner *)payload;
 
     // -------------------------------------------------------------------------
+    // Using directive lookahead - matches when NOT followed by = or .
+    // This is a zero-width token used to disambiguate:
+    // - @using Namespace (simple identifier)
+    // - @using Namespace.SubNamespace (qualified name, has .)
+    // - @using Alias = Type (alias form, has =)
+    // -------------------------------------------------------------------------
+
+    if (valid_symbols[USING_NOT_ALIAS]) {
+        // Skip whitespace
+        while (lexer->lookahead == ' ' || lexer->lookahead == '\t' ||
+               lexer->lookahead == '\n' || lexer->lookahead == '\r' ||
+               lexer->lookahead == 0x0B || lexer->lookahead == 0x0C) {
+            razor_skip(lexer);
+        }
+
+        // Match if NOT followed by = or . (so alias and qualified_name can match)
+        if (lexer->lookahead != '=' && lexer->lookahead != '.') {
+            lexer->result_symbol = USING_NOT_ALIAS;
+            return true;
+        }
+        // Followed by = or . - don't match, let alias form or qualified_name be tried
+        return false;
+    }
+
+    // -------------------------------------------------------------------------
     // Implicit expression terminator - matches when expression should end
     // This is a zero-width token that prevents whitespace from being skipped
     // -------------------------------------------------------------------------
 
-    if (valid_symbols[IMPLICIT_EXPR_END]) {
+    // Don't match IMPLICIT_EXPR_END if RAZOR_BLOCK_OPEN is also valid
+    // In that case, we're expecting a block, not ending an expression
+    if (valid_symbols[IMPLICIT_EXPR_END] && !valid_symbols[RAZOR_BLOCK_OPEN]) {
         // The expression should end if we see:
         // - Whitespace (space, tab, newline)
         // - Characters that aren't valid expression continuations
@@ -474,7 +515,10 @@ bool tree_sitter_razor_external_scanner_scan(void *payload, TSLexer *lexer, cons
 
     // { in Razor block context (after @if, @for, etc.) - enters C# brace context
     if (valid_symbols[RAZOR_BLOCK_OPEN]) {
-        while (iswspace(lexer->lookahead)) {
+        // Skip C# whitespace (Zs category + horizontal/vertical tab + form feed)
+        while (lexer->lookahead == ' ' || lexer->lookahead == '\t' ||
+               lexer->lookahead == '\n' || lexer->lookahead == '\r' ||
+               lexer->lookahead == 0x0B || lexer->lookahead == 0x0C) {
             razor_skip(lexer);
         }
         if (lexer->lookahead == '{') {
@@ -487,7 +531,10 @@ bool tree_sitter_razor_external_scanner_scan(void *payload, TSLexer *lexer, cons
 
     // } or ) that closes C# context
     if (valid_symbols[CSHARP_CONTEXT_CLOSE] && scanner->context_stack.size > 0) {
-        while (iswspace(lexer->lookahead)) {
+        // Skip C# whitespace
+        while (lexer->lookahead == ' ' || lexer->lookahead == '\t' ||
+               lexer->lookahead == '\n' || lexer->lookahead == '\r' ||
+               lexer->lookahead == 0x0B || lexer->lookahead == 0x0C) {
             razor_skip(lexer);
         }
 
@@ -498,6 +545,106 @@ bool tree_sitter_razor_external_scanner_scan(void *payload, TSLexer *lexer, cons
             array_pop(&scanner->context_stack);
             lexer->result_symbol = CSHARP_CONTEXT_CLOSE;
             return true;
+        }
+    }
+
+    // @keyword tokens for control flow in Razor blocks AND RAZOR_BLOCK_AT
+    // Handle both in one block so we can properly fallback
+    // These tokens are longer than C# verbatim identifiers, so they win in the lexer
+    bool any_at_token_valid = valid_symbols[RAZOR_BLOCK_AT] ||
+                               valid_symbols[RAZOR_AT_IF] ||
+                               valid_symbols[RAZOR_AT_FOR] ||
+                               valid_symbols[RAZOR_AT_FOREACH] ||
+                               valid_symbols[RAZOR_AT_WHILE] ||
+                               valid_symbols[RAZOR_AT_DO] ||
+                               valid_symbols[RAZOR_AT_SWITCH] ||
+                               valid_symbols[RAZOR_AT_TRY] ||
+                               valid_symbols[RAZOR_AT_LOCK] ||
+                               valid_symbols[RAZOR_AT_USING];
+
+    if (any_at_token_valid && in_csharp_context(scanner)) {
+        // Skip C# whitespace first
+        while (lexer->lookahead == ' ' || lexer->lookahead == '\t' ||
+               lexer->lookahead == '\n' || lexer->lookahead == '\r' ||
+               lexer->lookahead == 0x0B || lexer->lookahead == 0x0C) {
+            razor_skip(lexer);
+        }
+
+        if (lexer->lookahead == '@') {
+            lexer->mark_end(lexer);  // Mark position after whitespace, before @
+            razor_advance(lexer);    // Consume @
+
+            // Check for @: (text literal) or @@ (escaped @) - don't match these
+            if (lexer->lookahead == ':' || lexer->lookahead == '@') {
+                return false;
+            }
+
+            // Mark position after @ - this is what RAZOR_BLOCK_AT would match
+            lexer->mark_end(lexer);
+
+            // Try to match @keyword patterns
+            // Keywords: if, for, foreach, while, do, switch, try, lock, using
+            char buf[10] = {0};
+            int len = 0;
+
+            // Read potential keyword (up to 7 chars for "foreach")
+            while (len < 7 && is_identifier_char(lexer->lookahead)) {
+                buf[len++] = (char)lexer->lookahead;
+                razor_advance(lexer);
+            }
+            buf[len] = '\0';
+
+            // Check if followed by non-identifier char (keyword boundary)
+            bool at_boundary = !is_identifier_char(lexer->lookahead);
+
+            if (at_boundary) {
+                if (valid_symbols[RAZOR_AT_IF] && strcmp(buf, "if") == 0) {
+                    lexer->result_symbol = RAZOR_AT_IF;
+                    return true;
+                }
+                if (valid_symbols[RAZOR_AT_FOR] && strcmp(buf, "for") == 0) {
+                    lexer->result_symbol = RAZOR_AT_FOR;
+                    return true;
+                }
+                if (valid_symbols[RAZOR_AT_FOREACH] && strcmp(buf, "foreach") == 0) {
+                    lexer->result_symbol = RAZOR_AT_FOREACH;
+                    return true;
+                }
+                if (valid_symbols[RAZOR_AT_WHILE] && strcmp(buf, "while") == 0) {
+                    lexer->result_symbol = RAZOR_AT_WHILE;
+                    return true;
+                }
+                if (valid_symbols[RAZOR_AT_DO] && strcmp(buf, "do") == 0) {
+                    lexer->result_symbol = RAZOR_AT_DO;
+                    return true;
+                }
+                if (valid_symbols[RAZOR_AT_SWITCH] && strcmp(buf, "switch") == 0) {
+                    lexer->result_symbol = RAZOR_AT_SWITCH;
+                    return true;
+                }
+                if (valid_symbols[RAZOR_AT_TRY] && strcmp(buf, "try") == 0) {
+                    lexer->result_symbol = RAZOR_AT_TRY;
+                    return true;
+                }
+                if (valid_symbols[RAZOR_AT_LOCK] && strcmp(buf, "lock") == 0) {
+                    lexer->result_symbol = RAZOR_AT_LOCK;
+                    return true;
+                }
+                if (valid_symbols[RAZOR_AT_USING] && strcmp(buf, "using") == 0) {
+                    lexer->result_symbol = RAZOR_AT_USING;
+                    return true;
+                }
+            }
+
+            // Not a keyword - if RAZOR_BLOCK_AT is valid, match just the @
+            // The mark_end after @ ensures we only match the @ character
+            if (valid_symbols[RAZOR_BLOCK_AT]) {
+                lexer->result_symbol = RAZOR_BLOCK_AT;
+                return true;
+            }
+
+            // Neither keyword nor RAZOR_BLOCK_AT matched - fail
+            return false;
         }
     }
 
