@@ -165,19 +165,20 @@ module.exports = grammar(csharp, {
     ),
 
     // Nested Razor expressions inside a block - uses external @ token
-    _nested_razor_explicit_expression: $ => prec.dynamic(100, seq(
+    _nested_razor_explicit_expression: $ => seq(
       alias($._razor_block_at, '@'),
       '(',
       $.expression,
       ')',
-    )),
+    ),
 
     // Lower precedence than _nested_razor_statement to ensure @if/@for/etc. are parsed as statements
-    _nested_razor_implicit_expression: $ => prec.dynamic(-100, seq(
+    // prec.dynamic not needed here since _nested_razor_statement uses distinct @keyword tokens
+    _nested_razor_implicit_expression: $ => seq(
       alias($._razor_block_at, '@'),
       $._razor_implicit_expr_chain,
       $._implicit_expr_end,
-    )),
+    ),
 
     // Statements valid inside Razor code blocks (function body context)
     // This is more restrictive than C#'s full statement rule, excluding:
@@ -199,10 +200,10 @@ module.exports = grammar(csharp, {
 
     // @: for single-line text literals inside code blocks
     // Can contain Razor expressions like @person.Name
-    razor_text_literal: $ => prec.right(prec.dynamic(100, seq(
+    razor_text_literal: $ => prec.right(seq(
       '@:',
       repeat($._razor_text_literal_content),
-    ))),
+    )),
 
     _razor_text_literal_content: $ => prec.right(10, choice(
       // Plain text (anything except @ and newline)
@@ -217,17 +218,17 @@ module.exports = grammar(csharp, {
 
     // Higher precedence versions for text literal context
     // Uses token(prec()) to give @ higher lexical precedence than C# verbatim identifier
-    _text_literal_explicit_expression: $ => prec.dynamic(200, seq(
+    _text_literal_explicit_expression: $ => seq(
       token(prec(10, '@')),
       '(',
       $.expression,
       ')',
-    )),
+    ),
 
-    _text_literal_implicit_expression: $ => prec.dynamic(200, seq(
+    _text_literal_implicit_expression: $ => seq(
       token(prec(10, '@')),
       $._razor_implicit_expr_chain,
-    )),
+    ),
 
     // Razor if statement with HTML support
     // Uses prec.right so that else/else if following the block are associated with this if
@@ -792,11 +793,11 @@ module.exports = grammar(csharp, {
 
     // @{ ... } code blocks
     // Uses external scanner to track entering/exiting C# context
-    razor_code_block: $ => prec.dynamic(100, seq(
+    razor_code_block: $ => seq(
       alias($._csharp_code_block_start, '@{'),
       repeat($._razor_block_content),
       alias($._csharp_context_close, '}'),
-    )),
+    ),
 
     // =========================================================================
     // Razor Expressions
@@ -804,11 +805,11 @@ module.exports = grammar(csharp, {
 
     // Explicit expression: @(expression)
     // Uses external scanner to track entering/exiting C# context
-    razor_explicit_expression: $ => prec.dynamic(100, seq(
+    razor_explicit_expression: $ => seq(
       alias($._csharp_explicit_expr_start, '@('),
       $.expression,
       alias($._csharp_context_close, ')'),
-    )),
+    ),
 
     // Implicit expression: @identifier, @identifier.property, @identifier.Method()
     // The _implicit_expr_end token is zero-width and matches when whitespace or
@@ -820,10 +821,10 @@ module.exports = grammar(csharp, {
     ),
 
     // Chain of member access, method calls, and indexers starting from identifier
-    _razor_implicit_expr_chain: $ => prec.dynamic(10, choice(
+    _razor_implicit_expr_chain: $ => choice(
       $.await_expression,
       $._razor_access_chain,
-    )),
+    ),
 
     // Matches: identifier, identifier.member, identifier.method(), identifier[index], identifier?.member
     // Also matches literal keywords: true, false, null
@@ -843,13 +844,12 @@ module.exports = grammar(csharp, {
     ),
 
     // Primary expression that can have member access, invocation, or indexing applied
-    // Uses prec.left for left-to-right associativity (foo.bar.baz groups as ((foo.bar).baz))
     _razor_primary_expression: $ => choice(
-      prec.dynamic(1, $.identifier),
-      prec.dynamic(20, alias($._razor_member_access, $.member_access_expression)),
-      prec.dynamic(20, alias($._razor_invocation, $.invocation_expression)),
-      prec.dynamic(20, alias($._razor_element_access, $.element_access_expression)),
-      prec.dynamic(20, alias($._razor_conditional_access, $.conditional_access_expression)),
+      $.identifier,
+      alias($._razor_member_access, $.member_access_expression),
+      alias($._razor_invocation, $.invocation_expression),
+      alias($._razor_element_access, $.element_access_expression),
+      alias($._razor_conditional_access, $.conditional_access_expression),
     ),
 
     // Member access: expr.identifier
