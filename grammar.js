@@ -54,8 +54,8 @@ module.exports = grammar(csharp, {
     // HTML text content that stops before else/catch/finally keywords
     $._html_text_content,
     // Context-tracking tokens for C# vs HTML mode
-    $._csharp_code_block_start,     // @{ - enters C# context
-    $._csharp_explicit_expr_start,  // @( - enters C# context
+    $._csharp_code_block_start,     // @{ - enters C# brace context
+    $._csharp_explicit_expr_start,  // @( - enters C# paren context
     $._razor_block_open,            // { after Razor statement - enters C# context
     $._csharp_context_close,        // } or ) that exits C# context
     $._csharp_comment,              // C# comment, only valid in C# context
@@ -71,16 +71,6 @@ module.exports = grammar(csharp, {
     $._razor_block_at,              // @ in Razor block - starts nested Razor expression
     // Using directive: zero-width token that matches when NOT followed by = or .
     $._using_not_alias,
-    // @keyword tokens for nested control flow (matched as single token to avoid seq overhead)
-    $._nested_at_if,                // @if in C# context
-    $._nested_at_for,               // @for in C# context
-    $._nested_at_foreach,           // @foreach in C# context
-    $._nested_at_while,             // @while in C# context
-    $._nested_at_do,                // @do in C# context
-    $._nested_at_switch,            // @switch in C# context
-    $._nested_at_try,               // @try in C# context
-    $._nested_at_lock,              // @lock in C# context
-    $._nested_at_using,             // @using in C# context
   ]),
 
   rules: {
@@ -113,7 +103,7 @@ module.exports = grammar(csharp, {
     // The !DOCTYPE... part must be immediate after < and have higher precedence than opt-out !
     doctype: $ => seq(
       '<',
-      token.immediate(prec(10, /![Dd][Oo][Cc][Tt][Yy][Pp][Ee][^>]*/)),
+      token.immediate(prec(10, /!doctype[^>]*/i)),
       '>',
     ),
 
@@ -173,29 +163,31 @@ module.exports = grammar(csharp, {
       alias($._nested_using_statement, $.using_statement),
     ),
 
-    // Nested statement definitions - use external @keyword tokens (single token, avoids seq overhead)
-    _nested_if_statement: $ => seq(alias($._nested_at_if, '@if'), $._razor_if_statement_body),
-    _nested_for_statement: $ => seq(alias($._nested_at_for, '@for'), $._razor_for_statement_body),
-    _nested_foreach_statement: $ => seq(alias($._nested_at_foreach, '@foreach'), $._razor_foreach_statement_body),
-    _nested_while_statement: $ => seq(alias($._nested_at_while, '@while'), $._razor_while_statement_body),
-    _nested_do_statement: $ => seq(alias($._nested_at_do, '@do'), $._razor_do_statement_body),
-    _nested_switch_statement: $ => seq(alias($._nested_at_switch, '@switch'), $._razor_switch_statement_body),
-    _nested_try_statement: $ => seq(alias($._nested_at_try, '@try'), $._razor_try_statement_body),
-    _nested_lock_statement: $ => seq(alias($._nested_at_lock, '@lock'), $._razor_lock_statement_body),
-    _nested_using_statement: $ => seq(alias($._nested_at_using, '@using'), $._razor_using_statement_body),
+    // @ token in nested context - aliased external token to prevent C# @identifier matching
+    _nested_at: $ => alias($._razor_block_at, '@'),
 
-    // Nested Razor expressions inside a block - uses external @ token
+    // Nested statement definitions - use _nested_at + token.immediate for keyword
+    _nested_if_statement: $ => seq($._nested_at, token.immediate('if'), $._razor_if_statement_body),
+    _nested_for_statement: $ => seq($._nested_at, token.immediate('for'), $._razor_for_statement_body),
+    _nested_foreach_statement: $ => seq($._nested_at, token.immediate('foreach'), $._razor_foreach_statement_body),
+    _nested_while_statement: $ => seq($._nested_at, token.immediate('while'), $._razor_while_statement_body),
+    _nested_do_statement: $ => seq($._nested_at, token.immediate('do'), $._razor_do_statement_body),
+    _nested_switch_statement: $ => seq($._nested_at, token.immediate('switch'), $._razor_switch_statement_body),
+    _nested_try_statement: $ => seq($._nested_at, token.immediate('try'), $._razor_try_statement_body),
+    _nested_lock_statement: $ => seq($._nested_at, token.immediate('lock'), $._razor_lock_statement_body),
+    _nested_using_statement: $ => seq($._nested_at, token.immediate('using'), $._razor_using_statement_body),
+
+    // Nested Razor expressions inside a block
     _nested_razor_explicit_expression: $ => seq(
-      alias($._razor_block_at, '@'),
-      '(',
+      $._nested_at,
+      token.immediate('('),
       $.expression,
       ')',
     ),
 
     // Lower precedence than _nested_razor_statement to ensure @if/@for/etc. are parsed as statements
-    // prec.dynamic not needed here since _nested_razor_statement uses distinct @keyword tokens
     _nested_razor_implicit_expression: $ => seq(
-      alias($._razor_block_at, '@'),
+      $._nested_at,
       $._razor_implicit_expr_chain,
       $._implicit_expr_end,
     ),
@@ -253,8 +245,7 @@ module.exports = grammar(csharp, {
     // -------------------------------------------------------------------------
     // Razor if statement
     // -------------------------------------------------------------------------
-    // Uses high-precedence token to beat C# verbatim identifier @if
-    _razor_if_statement: $ => seq(token(prec(100, '@if')), $._razor_if_statement_body),
+    _razor_if_statement: $ => seq('@', token.immediate('if'), $._razor_if_statement_body),
     // Shared body - uses prec.right so else/else if are associated with this if
     _razor_if_statement_body: $ => prec.right(seq(
       '(',
@@ -290,7 +281,7 @@ module.exports = grammar(csharp, {
     // -------------------------------------------------------------------------
     // Razor for statement
     // -------------------------------------------------------------------------
-    _razor_for_statement: $ => seq(token(prec(100, '@for')), $._razor_for_statement_body),
+    _razor_for_statement: $ => seq('@', token.immediate('for'), $._razor_for_statement_body),
     _razor_for_statement_body: $ => seq(
       $._for_statement_conditions,
       field('body', $.razor_block),
@@ -299,7 +290,7 @@ module.exports = grammar(csharp, {
     // -------------------------------------------------------------------------
     // Razor foreach statement
     // -------------------------------------------------------------------------
-    _razor_foreach_statement: $ => seq(token(prec(100, '@foreach')), $._razor_foreach_statement_body),
+    _razor_foreach_statement: $ => seq('@', token.immediate('foreach'), $._razor_foreach_statement_body),
     _razor_foreach_statement_body: $ => seq(
       '(',
       choice(
@@ -318,7 +309,7 @@ module.exports = grammar(csharp, {
     // -------------------------------------------------------------------------
     // Razor while statement
     // -------------------------------------------------------------------------
-    _razor_while_statement: $ => seq(token(prec(100, '@while')), $._razor_while_statement_body),
+    _razor_while_statement: $ => seq('@', token.immediate('while'), $._razor_while_statement_body),
     _razor_while_statement_body: $ => seq(
       '(',
       field('condition', $.expression),
@@ -329,7 +320,7 @@ module.exports = grammar(csharp, {
     // -------------------------------------------------------------------------
     // Razor do statement
     // -------------------------------------------------------------------------
-    _razor_do_statement: $ => seq(token(prec(100, '@do')), $._razor_do_statement_body),
+    _razor_do_statement: $ => seq('@', token.immediate('do'), $._razor_do_statement_body),
     _razor_do_statement_body: $ => seq(
       field('body', $.razor_block),
       'while',
@@ -342,7 +333,7 @@ module.exports = grammar(csharp, {
     // -------------------------------------------------------------------------
     // Razor switch statement
     // -------------------------------------------------------------------------
-    _razor_switch_statement: $ => seq(token(prec(100, '@switch')), $._razor_switch_statement_body),
+    _razor_switch_statement: $ => seq('@', token.immediate('switch'), $._razor_switch_statement_body),
     _razor_switch_statement_body: $ => seq(
       '(',
       field('value', $.expression),
@@ -383,7 +374,7 @@ module.exports = grammar(csharp, {
     // -------------------------------------------------------------------------
     // Razor try statement
     // -------------------------------------------------------------------------
-    _razor_try_statement: $ => seq(token(prec(100, '@try')), $._razor_try_statement_body),
+    _razor_try_statement: $ => seq('@', token.immediate('try'), $._razor_try_statement_body),
     // Uses prec.right so catch/finally are associated with this try
     _razor_try_statement_body: $ => prec.right(seq(
       field('body', $.razor_block),
@@ -404,13 +395,13 @@ module.exports = grammar(csharp, {
     // -------------------------------------------------------------------------
     // Razor lock statement
     // -------------------------------------------------------------------------
-    _razor_lock_statement: $ => seq(token(prec(100, '@lock')), $._razor_lock_statement_body),
+    _razor_lock_statement: $ => seq('@', token.immediate('lock'), $._razor_lock_statement_body),
     _razor_lock_statement_body: $ => seq('(', $.expression, ')', $.razor_block),
 
     // -------------------------------------------------------------------------
     // Razor using statement (not directive)
     // -------------------------------------------------------------------------
-    _razor_using_statement: $ => seq(token(prec(100, '@using')), $._razor_using_statement_body),
+    _razor_using_statement: $ => seq('@', token.immediate('using'), $._razor_using_statement_body),
     _razor_using_statement_body: $ => seq(
       '(',
       choice(
@@ -638,8 +629,12 @@ module.exports = grammar(csharp, {
       $.html_attribute_name,
     ),
 
-    // Note: @ is NOT allowed at start - @attributes are handled by razor_attribute
-    html_attribute_name: _ => /[a-zA-Z_:][a-zA-Z0-9_.:-]*/,
+    // Note: @name attributes are handled by razor_attribute
+    // But @ alone is a valid HTML attribute name
+    html_attribute_name: _ => choice(
+      /[a-zA-Z_:][a-zA-Z0-9_.:-]*/,
+      '@',
+    ),
 
     html_attribute_value: $ => choice(
       $.html_quoted_attribute_value,
@@ -679,17 +674,21 @@ module.exports = grammar(csharp, {
     ),
 
     // Razor-specific attribute (e.g., @onclick, @bind)
+    // Uses token.immediate() to prevent whitespace between @ and attribute name
     razor_attribute: $ => choice(
       // With value: @onclick="handler"
       seq(
         '@',
-        $.html_attribute_name,
+        alias($._immediate_html_attribute_name, $.html_attribute_name),
         '=',
         $.html_attribute_value,
       ),
       // Without value: @rendermode
-      seq('@', $.html_attribute_name),
+      seq('@', alias($._immediate_html_attribute_name, $.html_attribute_name)),
     ),
+
+    // Attribute name that must immediately follow @ (no whitespace allowed)
+    _immediate_html_attribute_name: _ => token.immediate(/[a-zA-Z_:][a-zA-Z0-9_.:-]*/),
 
     // =========================================================================
     // Comments
@@ -833,16 +832,16 @@ module.exports = grammar(csharp, {
 
     // @page takes a route pattern as a string literal
     // Use prec.right to prefer continuing with string_literal over reducing early
-    razor_page_directive: $ => prec.right(seq('@page', optional($.string_literal))),
+    razor_page_directive: $ => prec.right(seq('@', token.immediate('page'), optional($.string_literal))),
 
-    razor_model_directive: $ => seq('@model', $.type),
+    razor_model_directive: $ => seq('@', token.immediate('model'), $.type),
 
     // @using directive (imports namespace or creates alias)
     // The statement form is @using (...) which starts with ( after '@using'
     // The directive form is @using Namespace or @using Alias = Type
-    // Uses same high-precedence token as statement to ensure consistent lexing
     razor_using_directive: $ => prec(1, seq(
-      token(prec(100, '@using')),
+      '@',
+      token.immediate('using'),
       choice(
         // Static import: @using static Type
         seq('static', $._name),
@@ -865,11 +864,11 @@ module.exports = grammar(csharp, {
     // Simple form - uses external scanner to ensure NOT followed by = or .
     _using_simple: $ => seq($.identifier, $._using_not_alias),
 
-    razor_inject_directive: $ => seq('@inject', field('type', $.type), field('name', $.identifier)),
+    razor_inject_directive: $ => seq('@', token.immediate('inject'), field('type', $.type), field('name', $.identifier)),
 
-    razor_inherits_directive: $ => seq('@inherits', $.type),
+    razor_inherits_directive: $ => seq('@', token.immediate('inherits'), $.type),
 
-    razor_namespace_directive: $ => seq('@namespace', $._name),
+    razor_namespace_directive: $ => seq('@', token.immediate('namespace'), $._name),
 
     // Override declaration_list to use context-tracking tokens
     // This is used by @functions and @code directives
@@ -879,35 +878,37 @@ module.exports = grammar(csharp, {
       alias($._csharp_context_close, '}'),
     ),
 
-    razor_functions_directive: $ => seq('@functions', $.declaration_list),
+    razor_functions_directive: $ => seq('@', token.immediate('functions'), $.declaration_list),
 
     // @code is the Blazor equivalent of @functions
-    razor_code_directive: $ => seq('@code', $.declaration_list),
+    razor_code_directive: $ => seq('@', token.immediate('code'), $.declaration_list),
 
     razor_section_directive: $ => seq(
-      '@section',
+      '@',
+      token.immediate('section'),
       $.identifier,
       '{',
       repeat($._node),
       '}',
     ),
 
-    razor_layout_directive: $ => seq('@layout', $.type),
+    razor_layout_directive: $ => seq('@', token.immediate('layout'), $.type),
 
-    razor_attribute_directive: $ => seq('@attribute', $.attribute_list),
+    razor_attribute_directive: $ => seq('@', token.immediate('attribute'), $.attribute_list),
 
-    razor_implements_directive: $ => seq('@implements', $.type),
+    razor_implements_directive: $ => seq('@', token.immediate('implements'), $.type),
 
-    razor_typeparam_directive: $ => seq('@typeparam', $.identifier, optional($.type_parameter_constraints_clause)),
+    razor_typeparam_directive: $ => seq('@', token.immediate('typeparam'), $.identifier, optional($.type_parameter_constraints_clause)),
 
-    razor_preservewhitespace_directive: $ => seq('@preservewhitespace', $.boolean_literal),
+    razor_preservewhitespace_directive: $ => seq('@', token.immediate('preservewhitespace'), $.boolean_literal),
 
-    razor_rendermode_directive: $ => seq('@rendermode', $.identifier),
+    razor_rendermode_directive: $ => seq('@', token.immediate('rendermode'), $.identifier),
 
     // @addTagHelper typePattern, assemblyName
     // e.g., @addTagHelper *, Microsoft.AspNetCore.Mvc.TagHelpers
     razor_addtaghelper_directive: $ => seq(
-      '@addTagHelper',
+      '@',
+      token.immediate('addTagHelper'),
       field('type_pattern', $.tag_helper_type_pattern),
       ',',
       field('assembly', $._name),
@@ -915,7 +916,8 @@ module.exports = grammar(csharp, {
 
     // @removeTagHelper typePattern, assemblyName
     razor_removetaghelper_directive: $ => seq(
-      '@removeTagHelper',
+      '@',
+      token.immediate('removeTagHelper'),
       field('type_pattern', $.tag_helper_type_pattern),
       ',',
       field('assembly', $._name),
@@ -924,7 +926,8 @@ module.exports = grammar(csharp, {
     // @tagHelperPrefix prefix
     // e.g., @tagHelperPrefix th:
     razor_taghelperprefix_directive: $ => seq(
-      '@tagHelperPrefix',
+      '@',
+      token.immediate('tagHelperPrefix'),
       field('prefix', $.tag_helper_prefix),
     ),
 
@@ -964,26 +967,24 @@ module.exports = grammar(csharp, {
     // Implicit expression: @identifier, @identifier.property, @identifier.Method()
     // The _implicit_expr_end token is zero-width and matches when whitespace or
     // a non-continuation character follows, forcing the expression to end
-    razor_implicit_expression: $ => choice(
-      // @await expression - uses single token like other directives
-      seq(
-        token(prec(100, '@await')),
-        alias($._razor_await_expression, $.await_expression),
-        $._implicit_expr_end,
-      ),
-      // Regular implicit expression
-      seq(
-        '@',
-        $._razor_implicit_expr_chain,
-        $._implicit_expr_end,
-      ),
+    razor_implicit_expression: $ => seq(
+      '@',
+      $._razor_implicit_expr_chain,
+      $._implicit_expr_end,
     ),
 
     // Chain of member access, method calls, and indexers starting from identifier
-    _razor_implicit_expr_chain: $ => $._razor_access_chain,
+    _razor_implicit_expr_chain: $ => choice(
+      alias($._razor_await_expression, $.await_expression),
+      $._razor_access_chain,
+    ),
 
-    // Razor-specific await expression body (after @await token)
-    _razor_await_expression: $ => prec.right($._razor_access_chain),
+    // Razor-specific await expression for implicit expressions
+    // Uses token.immediate to prevent whitespace between @ and await
+    _razor_await_expression: $ => prec.right(seq(
+      token.immediate('await'),
+      $._razor_access_chain,
+    )),
 
     // Matches: identifier, identifier.member, identifier.method(), identifier[index], identifier?.member
     // Also matches literal keywords: true, false, null

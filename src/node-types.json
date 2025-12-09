@@ -3350,6 +3350,11 @@
     }
   },
   {
+    "type": "html_attribute_name",
+    "named": true,
+    "fields": {}
+  },
+  {
     "type": "html_attribute_value",
     "named": true,
     "fields": {},
@@ -5729,6 +5734,10 @@
       "required": false,
       "types": [
         {
+          "type": "await_expression",
+          "named": true
+        },
+        {
           "type": "block",
           "named": true
         },
@@ -5815,6 +5824,10 @@
       "multiple": true,
       "required": false,
       "types": [
+        {
+          "type": "await_expression",
+          "named": true
+        },
         {
           "type": "block",
           "named": true
@@ -6019,7 +6032,7 @@
     "fields": {},
     "children": {
       "multiple": false,
-      "required": false,
+      "required": true,
       "types": [
         {
           "type": "await_expression",
@@ -6375,6 +6388,10 @@
       "multiple": true,
       "required": false,
       "types": [
+        {
+          "type": "await_expression",
+          "named": true
+        },
         {
           "type": "block",
           "named": true
@@ -8360,114 +8377,6 @@
     "named": false
   },
   {
-    "type": "@addTagHelper",
-    "named": false
-  },
-  {
-    "type": "@attribute",
-    "named": false
-  },
-  {
-    "type": "@await",
-    "named": false
-  },
-  {
-    "type": "@code",
-    "named": false
-  },
-  {
-    "type": "@do",
-    "named": false
-  },
-  {
-    "type": "@for",
-    "named": false
-  },
-  {
-    "type": "@foreach",
-    "named": false
-  },
-  {
-    "type": "@functions",
-    "named": false
-  },
-  {
-    "type": "@if",
-    "named": false
-  },
-  {
-    "type": "@implements",
-    "named": false
-  },
-  {
-    "type": "@inherits",
-    "named": false
-  },
-  {
-    "type": "@inject",
-    "named": false
-  },
-  {
-    "type": "@layout",
-    "named": false
-  },
-  {
-    "type": "@lock",
-    "named": false
-  },
-  {
-    "type": "@model",
-    "named": false
-  },
-  {
-    "type": "@namespace",
-    "named": false
-  },
-  {
-    "type": "@page",
-    "named": false
-  },
-  {
-    "type": "@preservewhitespace",
-    "named": false
-  },
-  {
-    "type": "@removeTagHelper",
-    "named": false
-  },
-  {
-    "type": "@rendermode",
-    "named": false
-  },
-  {
-    "type": "@section",
-    "named": false
-  },
-  {
-    "type": "@switch",
-    "named": false
-  },
-  {
-    "type": "@tagHelperPrefix",
-    "named": false
-  },
-  {
-    "type": "@try",
-    "named": false
-  },
-  {
-    "type": "@typeparam",
-    "named": false
-  },
-  {
-    "type": "@using",
-    "named": false
-  },
-  {
-    "type": "@while",
-    "named": false
-  },
-  {
     "type": "@{",
     "named": false
   },
@@ -8524,6 +8433,10 @@
     "named": false
   },
   {
+    "type": "addTagHelper",
+    "named": false
+  },
+  {
     "type": "alias",
     "named": false
   },
@@ -8549,6 +8462,10 @@
   },
   {
     "type": "async",
+    "named": false
+  },
+  {
+    "type": "attribute",
     "named": false
   },
   {
@@ -8589,6 +8506,10 @@
   },
   {
     "type": "class",
+    "named": false
+  },
+  {
+    "type": "code",
     "named": false
   },
   {
@@ -8696,6 +8617,10 @@
     "named": false
   },
   {
+    "type": "functions",
+    "named": false
+  },
+  {
     "type": "get",
     "named": false
   },
@@ -8716,15 +8641,15 @@
     "named": false
   },
   {
-    "type": "html_attribute_name",
-    "named": true
-  },
-  {
     "type": "html_comment",
     "named": true
   },
   {
     "type": "if",
+    "named": false
+  },
+  {
+    "type": "implements",
     "named": false
   },
   {
@@ -8736,7 +8661,15 @@
     "named": false
   },
   {
+    "type": "inherits",
+    "named": false
+  },
+  {
     "type": "init",
+    "named": false
+  },
+  {
+    "type": "inject",
     "named": false
   },
   {
@@ -8776,6 +8709,10 @@
     "named": false
   },
   {
+    "type": "layout",
+    "named": false
+  },
+  {
     "type": "let",
     "named": false
   },
@@ -8789,6 +8726,10 @@
   },
   {
     "type": "method",
+    "named": false
+  },
+  {
+    "type": "model",
     "named": false
   },
   {
@@ -8840,6 +8781,10 @@
     "named": false
   },
   {
+    "type": "page",
+    "named": false
+  },
+  {
     "type": "param",
     "named": false
   },
@@ -8858,6 +8803,10 @@
   {
     "type": "preproc_arg",
     "named": true
+  },
+  {
+    "type": "preservewhitespace",
+    "named": false
   },
   {
     "type": "private",
@@ -8912,6 +8861,14 @@
     "named": false
   },
   {
+    "type": "removeTagHelper",
+    "named": false
+  },
+  {
+    "type": "rendermode",
+    "named": false
+  },
+  {
     "type": "required",
     "named": false
   },
@@ -8929,6 +8886,10 @@
   },
   {
     "type": "sealed",
+    "named": false
+  },
+  {
+    "type": "section",
     "named": false
   },
   {
@@ -8968,6 +8929,10 @@
     "named": false
   },
   {
+    "type": "tagHelperPrefix",
+    "named": false
+  },
+  {
     "type": "tag_helper_prefix",
     "named": true
   },
@@ -8993,6 +8958,10 @@
   },
   {
     "type": "typeof",
+    "named": false
+  },
+  {
+    "type": "typeparam",
     "named": false
   },
   {

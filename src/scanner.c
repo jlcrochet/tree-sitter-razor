@@ -30,8 +30,8 @@ enum RazorTokenType {
     TEXT_WITH_LITERAL_AT = CSHARP_TOKEN_COUNT,  // Text containing @ preceded by word char (e.g., email)
     HTML_TEXT_CONTENT,       // HTML text content, aware of else/catch/finally keywords
     // Context-aware tokens for tracking C# vs HTML mode
-    CSHARP_CODE_BLOCK_START, // @{ - enters C# context
-    CSHARP_EXPLICIT_EXPR_START, // @( - enters C# context
+    CSHARP_CODE_BLOCK_START, // @{ - enters C# brace context
+    CSHARP_EXPLICIT_EXPR_START, // @( - enters C# paren context
     RAZOR_BLOCK_OPEN,        // { after Razor statement - enters C# context
     CSHARP_CONTEXT_CLOSE,    // } or ) that exits C# context
     CSHARP_COMMENT,          // /* */ or // comment, only valid in C# context
@@ -47,16 +47,6 @@ enum RazorTokenType {
     RAZOR_BLOCK_AT,          // @ inside a Razor block - starts nested Razor expression
     // Using directive lookahead
     USING_NOT_ALIAS,         // Zero-width token that matches when NOT followed by = or .
-    // @keyword tokens for nested control flow (matched in C# context)
-    NESTED_AT_IF,            // @if in C# context
-    NESTED_AT_FOR,           // @for in C# context
-    NESTED_AT_FOREACH,       // @foreach in C# context
-    NESTED_AT_WHILE,         // @while in C# context
-    NESTED_AT_DO,            // @do in C# context
-    NESTED_AT_SWITCH,        // @switch in C# context
-    NESTED_AT_TRY,           // @try in C# context
-    NESTED_AT_LOCK,          // @lock in C# context
-    NESTED_AT_USING,         // @using in C# context
 };
 
 // =============================================================================
@@ -163,6 +153,12 @@ static inline bool is_whitespace(int32_t c) {
            c == 0x3000;
 }
 
+// Check if character is a valid HTML end tag terminator per the HTML spec.
+// Valid terminators after tag name: tab, newline, form feed, space, /, >
+static inline bool is_end_tag_terminator(int32_t c) {
+    return c == '\t' || c == '\n' || c == '\f' || c == ' ' || c == '/' || c == '>';
+}
+
 // Check if character is a "word" character for email address detection.
 // Per Razor lexer: char.IsLetter(c) || char.IsDigit(c)
 // - IsLetter: UppercaseLetter, LowercaseLetter, TitlecaseLetter, ModifierLetter, OtherLetter
@@ -174,6 +170,11 @@ static inline bool is_email_char(int32_t c) {
 // Check if character can be part of a C# identifier (for keyword boundary detection)
 static inline bool is_identifier_char(int32_t c) {
     return is_unicode_letter(c) || is_unicode_digit(c) || c == '_';
+}
+
+// Check if character can start a C# identifier (letter or underscore, not digit)
+static inline bool is_identifier_start(int32_t c) {
+    return is_unicode_letter(c) || c == '_';
 }
 
 // =============================================================================
@@ -510,7 +511,8 @@ bool tree_sitter_razor_external_scanner_scan(void *payload, TSLexer *lexer, cons
     // Context-tracking tokens for C# vs HTML mode
     // -------------------------------------------------------------------------
 
-    // @{ and @( - enter C# context
+    // @{ or @( - enter C# context
+    // Check both together to avoid consuming @ then failing
     if ((valid_symbols[CSHARP_CODE_BLOCK_START] || valid_symbols[CSHARP_EXPLICIT_EXPR_START]) &&
         lexer->lookahead == '@') {
         razor_advance(lexer);
@@ -526,7 +528,7 @@ bool tree_sitter_razor_external_scanner_scan(void *payload, TSLexer *lexer, cons
             lexer->result_symbol = CSHARP_EXPLICIT_EXPR_START;
             return true;
         }
-        // Not @{ or @( - don't match
+        // Neither @{ nor @( - don't match
         return false;
     }
 
@@ -561,27 +563,15 @@ bool tree_sitter_razor_external_scanner_scan(void *payload, TSLexer *lexer, cons
         }
     }
 
-    // @keyword tokens and @ for nested Razor expressions/statements in C# context
+    // @ token for nested Razor expressions/statements in C# context
     // Must be matched before C# verbatim identifier lexing can grab @identifier
-    bool any_nested_at_valid = valid_symbols[RAZOR_BLOCK_AT] ||
-                               valid_symbols[NESTED_AT_IF] ||
-                               valid_symbols[NESTED_AT_FOR] ||
-                               valid_symbols[NESTED_AT_FOREACH] ||
-                               valid_symbols[NESTED_AT_WHILE] ||
-                               valid_symbols[NESTED_AT_DO] ||
-                               valid_symbols[NESTED_AT_SWITCH] ||
-                               valid_symbols[NESTED_AT_TRY] ||
-                               valid_symbols[NESTED_AT_LOCK] ||
-                               valid_symbols[NESTED_AT_USING];
-
-    if (any_nested_at_valid && in_csharp_context(scanner)) {
+    if (valid_symbols[RAZOR_BLOCK_AT] && in_csharp_context(scanner)) {
         // Skip C# whitespace first
         while (is_whitespace(lexer->lookahead)) {
             razor_skip(lexer);
         }
 
         if (lexer->lookahead == '@') {
-            lexer->mark_end(lexer);  // Mark before @
             razor_advance(lexer);    // Consume @
 
             // Check for @: (text literal) or @@ (escaped @) - don't match these
@@ -589,80 +579,9 @@ bool tree_sitter_razor_external_scanner_scan(void *payload, TSLexer *lexer, cons
                 return false;
             }
 
-            // Mark position after @ - this is what RAZOR_BLOCK_AT would match
-            lexer->mark_end(lexer);
-
-            // Try to match @keyword patterns
-            char buf[10] = {0};
-            int len = 0;
-
-            // Read potential keyword (up to 8 chars for "foreach" + null)
-            while (len < 8 && is_identifier_char(lexer->lookahead)) {
-                buf[len++] = (char)lexer->lookahead;
-                razor_advance(lexer);
-            }
-            buf[len] = '\0';
-
-            // Check if followed by non-identifier char (keyword boundary)
-            bool at_boundary = !is_identifier_char(lexer->lookahead);
-
-            if (at_boundary) {
-                if (valid_symbols[NESTED_AT_IF] && strcmp(buf, "if") == 0) {
-                    lexer->mark_end(lexer);
-                    lexer->result_symbol = NESTED_AT_IF;
-                    return true;
-                }
-                if (valid_symbols[NESTED_AT_FOR] && len == 3 && strcmp(buf, "for") == 0) {
-                    lexer->mark_end(lexer);
-                    lexer->result_symbol = NESTED_AT_FOR;
-                    return true;
-                }
-                if (valid_symbols[NESTED_AT_FOREACH] && strcmp(buf, "foreach") == 0) {
-                    lexer->mark_end(lexer);
-                    lexer->result_symbol = NESTED_AT_FOREACH;
-                    return true;
-                }
-                if (valid_symbols[NESTED_AT_WHILE] && strcmp(buf, "while") == 0) {
-                    lexer->mark_end(lexer);
-                    lexer->result_symbol = NESTED_AT_WHILE;
-                    return true;
-                }
-                if (valid_symbols[NESTED_AT_DO] && strcmp(buf, "do") == 0) {
-                    lexer->mark_end(lexer);
-                    lexer->result_symbol = NESTED_AT_DO;
-                    return true;
-                }
-                if (valid_symbols[NESTED_AT_SWITCH] && strcmp(buf, "switch") == 0) {
-                    lexer->mark_end(lexer);
-                    lexer->result_symbol = NESTED_AT_SWITCH;
-                    return true;
-                }
-                if (valid_symbols[NESTED_AT_TRY] && strcmp(buf, "try") == 0) {
-                    lexer->mark_end(lexer);
-                    lexer->result_symbol = NESTED_AT_TRY;
-                    return true;
-                }
-                if (valid_symbols[NESTED_AT_LOCK] && strcmp(buf, "lock") == 0) {
-                    lexer->mark_end(lexer);
-                    lexer->result_symbol = NESTED_AT_LOCK;
-                    return true;
-                }
-                if (valid_symbols[NESTED_AT_USING] && strcmp(buf, "using") == 0) {
-                    lexer->mark_end(lexer);
-                    lexer->result_symbol = NESTED_AT_USING;
-                    return true;
-                }
-            }
-
-            // Not a keyword - if RAZOR_BLOCK_AT is valid, match just the @
-            // The mark_end after @ ensures we only match the @ character
-            if (valid_symbols[RAZOR_BLOCK_AT]) {
-                lexer->result_symbol = RAZOR_BLOCK_AT;
-                return true;
-            }
-
-            // Neither keyword nor RAZOR_BLOCK_AT matched - fail
-            return false;
+            // Match just the @ character
+            lexer->result_symbol = RAZOR_BLOCK_AT;
+            return true;
         }
     }
 
@@ -715,34 +634,14 @@ bool tree_sitter_razor_external_scanner_scan(void *payload, TSLexer *lexer, cons
     }
 
     // -------------------------------------------------------------------------
-    // Script and style content - raw text until closing tag
+    // Script, style, title, textarea content - raw text until closing tag
     // -------------------------------------------------------------------------
 
     // Script content - scan until </script>
     if (valid_symbols[SCRIPT_CONTENT]) {
-        // First check if we're immediately at the end tag
-        if (lexer->lookahead == '<') {
-            // Peek to see if this is </script>
-            lexer->mark_end(lexer);
-            razor_advance(lexer);
-            if (lexer->lookahead == '/') {
-                razor_advance(lexer);
-                // Check for 'script' (case insensitive)
-                int32_t c = lexer->lookahead;
-                if (c == 's' || c == 'S') {
-                    // Likely </script> - don't match any content
-                    return false;
-                }
-            }
-            // Not </script>, so < is content - but we need to restart
-            // Return false to let the parser try again
-            return false;
-        }
-
         bool has_content = false;
 
         while (!lexer->eof(lexer)) {
-            // Check for end tag
             if (lexer->lookahead == '<') {
                 lexer->mark_end(lexer);
                 razor_advance(lexer);
@@ -754,20 +653,19 @@ bool tree_sitter_razor_external_scanner_scan(void *payload, TSLexer *lexer, cons
                     bool matches = true;
                     while (tag[i] && matches) {
                         int32_t c = lexer->lookahead;
-                        if (c != tag[i] && c != (tag[i] - 32)) { // case insensitive
+                        if (c != tag[i] && c != (tag[i] - 32)) {
                             matches = false;
                         } else {
                             razor_advance(lexer);
                             i++;
                         }
                     }
-                    if (matches && i == 6) {
-                        // Found </script - stop before the <
-                        // mark_end was already called at <
+                    // Must match full tag name AND be followed by valid terminator
+                    if (matches && i == 6 && is_end_tag_terminator(lexer->lookahead)) {
                         break;
                     }
                 }
-                // Not </script>, continue - the < and / and any other chars are content
+                // Not </script> with valid terminator, continue
                 has_content = true;
                 lexer->mark_end(lexer);
             } else {
@@ -786,21 +684,6 @@ bool tree_sitter_razor_external_scanner_scan(void *payload, TSLexer *lexer, cons
 
     // Style content - scan until </style>
     if (valid_symbols[STYLE_CONTENT]) {
-        // First check if we're immediately at the end tag
-        if (lexer->lookahead == '<') {
-            lexer->mark_end(lexer);
-            razor_advance(lexer);
-            if (lexer->lookahead == '/') {
-                razor_advance(lexer);
-                int32_t c = lexer->lookahead;
-                if (c == 's' || c == 'S') {
-                    // Likely </style> - don't match any content
-                    return false;
-                }
-            }
-            return false;
-        }
-
         bool has_content = false;
 
         while (!lexer->eof(lexer)) {
@@ -821,7 +704,7 @@ bool tree_sitter_razor_external_scanner_scan(void *payload, TSLexer *lexer, cons
                             i++;
                         }
                     }
-                    if (matches && i == 5) {
+                    if (matches && i == 5 && is_end_tag_terminator(lexer->lookahead)) {
                         break;
                     }
                 }
@@ -843,20 +726,6 @@ bool tree_sitter_razor_external_scanner_scan(void *payload, TSLexer *lexer, cons
 
     // Title content - scan until </title>
     if (valid_symbols[TITLE_CONTENT]) {
-        // First check if we're immediately at the end tag
-        if (lexer->lookahead == '<') {
-            lexer->mark_end(lexer);
-            razor_advance(lexer);
-            if (lexer->lookahead == '/') {
-                razor_advance(lexer);
-                int32_t c = lexer->lookahead;
-                if (c == 't' || c == 'T') {
-                    return false;
-                }
-            }
-            return false;
-        }
-
         bool has_content = false;
 
         while (!lexer->eof(lexer)) {
@@ -877,7 +746,7 @@ bool tree_sitter_razor_external_scanner_scan(void *payload, TSLexer *lexer, cons
                             i++;
                         }
                     }
-                    if (matches && i == 5) {
+                    if (matches && i == 5 && is_end_tag_terminator(lexer->lookahead)) {
                         break;
                     }
                 }
@@ -899,20 +768,6 @@ bool tree_sitter_razor_external_scanner_scan(void *payload, TSLexer *lexer, cons
 
     // Textarea content - scan until </textarea>
     if (valid_symbols[TEXTAREA_CONTENT]) {
-        // First check if we're immediately at the end tag
-        if (lexer->lookahead == '<') {
-            lexer->mark_end(lexer);
-            razor_advance(lexer);
-            if (lexer->lookahead == '/') {
-                razor_advance(lexer);
-                int32_t c = lexer->lookahead;
-                if (c == 't' || c == 'T') {
-                    return false;
-                }
-            }
-            return false;
-        }
-
         bool has_content = false;
 
         while (!lexer->eof(lexer)) {
@@ -933,7 +788,7 @@ bool tree_sitter_razor_external_scanner_scan(void *payload, TSLexer *lexer, cons
                             i++;
                         }
                     }
-                    if (matches && i == 8) {
+                    if (matches && i == 8 && is_end_tag_terminator(lexer->lookahead)) {
                         break;
                     }
                 }

@@ -621,3 +621,59 @@ Textarea element case insensitive
     (textarea_content)
     (textarea_end_tag
       (element_name))))
+
+================================================================================
+Script content with script-like text that should not terminate
+================================================================================
+<script>var s = "</scriptx>"; var t = "</scripty";</script>
+--------------------------------------------------------------------------------
+
+(compilation_unit
+  (script_element
+    (script_start_tag
+      (element_name))
+    (script_content)
+    (script_end_tag
+      (element_name))))
+
+================================================================================
+Style content with style-like text that should not terminate
+================================================================================
+<style>.styler { content: "</styled>"; }</style>
+--------------------------------------------------------------------------------
+
+(compilation_unit
+  (style_element
+    (style_start_tag
+      (element_name))
+    (style_content)
+    (style_end_tag
+      (element_name))))
+
+================================================================================
+Title content with title-like text that should not terminate
+================================================================================
+<title>The </titlex> Story</title>
+--------------------------------------------------------------------------------
+
+(compilation_unit
+  (title_element
+    (title_start_tag
+      (element_name))
+    (title_content)
+    (title_end_tag
+      (element_name))))
+
+================================================================================
+Textarea content with textarea-like text that should not terminate
+================================================================================
+<textarea></textareas> is not the end</textarea>
+--------------------------------------------------------------------------------
+
+(compilation_unit
+  (textarea_element
+    (textarea_start_tag
+      (element_name))
+    (textarea_content)
+    (textarea_end_tag
+      (element_name))))
