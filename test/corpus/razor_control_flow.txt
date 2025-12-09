@@ -10,14 +10,14 @@ If statement
 (compilation_unit
   (razor_statement
     (if_statement
-      (identifier)
-      (razor_block
+      condition: (identifier)
+      consequence: (razor_block
         (element
           (start_tag
-            (element_name))
+            name: (element_name))
           (text)
           (end_tag
-            (element_name)))))))
+            name: (element_name)))))))
 
 ================================================================================
 If-else statement
@@ -35,22 +35,22 @@ else
 (compilation_unit
   (razor_statement
     (if_statement
-      (identifier)
-      (razor_block
+      condition: (identifier)
+      consequence: (razor_block
         (element
           (start_tag
-            (element_name))
+            name: (element_name))
           (text)
           (end_tag
-            (element_name))))
-      (else_clause
+            name: (element_name))))
+      alternative: (else_clause
         (razor_block
           (element
             (start_tag
-              (element_name))
+              name: (element_name))
             (text)
             (end_tag
-              (element_name))))))))
+              name: (element_name))))))))
 
 ================================================================================
 If-else if-else statement
@@ -72,31 +72,31 @@ else
 (compilation_unit
   (razor_statement
     (if_statement
-      (identifier)
-      (razor_block
+      condition: (identifier)
+      consequence: (razor_block
         (element
           (start_tag
-            (element_name))
+            name: (element_name))
           (text)
           (end_tag
-            (element_name))))
-      (if_statement
-        (identifier)
-        (razor_block
+            name: (element_name))))
+      alternative: (razor_else_if_clause
+        condition: (identifier)
+        consequence: (razor_block
           (element
             (start_tag
-              (element_name))
+              name: (element_name))
             (text)
             (end_tag
-              (element_name))))
-        (else_clause
+              name: (element_name))))
+        alternative: (else_clause
           (razor_block
             (element
               (start_tag
-                (element_name))
+                name: (element_name))
               (text)
               (end_tag
-                (element_name)))))))))
+                name: (element_name)))))))))
 
 ================================================================================
 Foreach loop
@@ -339,17 +339,18 @@ Nested if statement in Razor block
       (prefix_unary_expression
         (identifier))
       (razor_block
-        (if_statement
-          (binary_expression
-            (identifier)
-            (null_literal))
-          (razor_block
-            (element
-              (start_tag
-                (element_name))
-              (text)
-              (end_tag
-                (element_name)))))))))
+        (razor_statement
+          (if_statement
+            (binary_expression
+              (identifier)
+              (null_literal))
+            (razor_block
+              (element
+                (start_tag
+                  (element_name))
+                (text)
+                (end_tag
+                  (element_name))))))))))
 
 ================================================================================
 Nested foreach in if statement
@@ -368,18 +369,19 @@ Nested foreach in if statement
     (if_statement
       (identifier)
       (razor_block
-        (foreach_statement
-          (implicit_type)
-          (identifier)
-          (identifier)
-          (razor_block
-            (element
-              (start_tag
-                (element_name))
-              (razor_implicit_expression
-                (identifier))
-              (end_tag
-                (element_name)))))))))
+        (razor_statement
+          (foreach_statement
+            (implicit_type)
+            (identifier)
+            (identifier)
+            (razor_block
+              (element
+                (start_tag
+                  (element_name))
+                (razor_implicit_expression
+                  (identifier))
+                (end_tag
+                  (element_name))))))))))
 
 ================================================================================
 Switch statement

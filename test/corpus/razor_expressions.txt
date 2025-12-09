@@ -34,6 +34,27 @@ Email address as literal text
       (element_name))))
 
 ================================================================================
+Email address inside Razor block
+================================================================================
+@if (true) {
+  <p>Contact: user@example.com</p>
+}
+--------------------------------------------------------------------------------
+
+(compilation_unit
+  (razor_statement
+    (if_statement
+      (boolean_literal)
+      (razor_block
+        (element
+          (start_tag
+            (element_name))
+          (text
+            (text))
+          (end_tag
+            (element_name)))))))
+
+================================================================================
 Razor implicit expression - simple identifier
 ================================================================================
 <p>@name</p>

@@ -68,11 +68,11 @@ Inject directive
 
 (compilation_unit
   (razor_inject_directive
-    (generic_name
+    type: (generic_name
       (identifier)
       (type_argument_list
         (identifier)))
-    (identifier)))
+    name: (identifier)))
 
 ================================================================================
 Inherits directive

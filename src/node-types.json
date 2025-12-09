@@ -3388,15 +3388,15 @@
     "named": true,
     "fields": {
       "alternative": {
-        "multiple": true,
+        "multiple": false,
         "required": false,
         "types": [
           {
-            "type": "else",
-            "named": false
+            "type": "else_clause",
+            "named": true
           },
           {
-            "type": "else_clause",
+            "type": "razor_else_if_clause",
             "named": true
           },
           {
@@ -4926,9 +4926,20 @@
     }
   },
   {
-    "type": "preproc",
+    "type": "preproc_define",
     "named": true,
-    "fields": {}
+    "extra": true,
+    "fields": {},
+    "children": {
+      "multiple": false,
+      "required": true,
+      "types": [
+        {
+          "type": "preproc_arg",
+          "named": true
+        }
+      ]
+    }
   },
   {
     "type": "preproc_elif",
@@ -5068,6 +5079,39 @@
         },
         {
           "type": "type_declaration",
+          "named": true
+        }
+      ]
+    }
+  },
+  {
+    "type": "preproc_endregion",
+    "named": true,
+    "extra": true,
+    "fields": {
+      "content": {
+        "multiple": false,
+        "required": false,
+        "types": [
+          {
+            "type": "preproc_arg",
+            "named": true
+          }
+        ]
+      }
+    }
+  },
+  {
+    "type": "preproc_error",
+    "named": true,
+    "extra": true,
+    "fields": {},
+    "children": {
+      "multiple": false,
+      "required": true,
+      "types": [
+        {
+          "type": "preproc_arg",
           "named": true
         }
       ]
@@ -5224,6 +5268,105 @@
       "types": [
         {
           "type": "attribute_list",
+          "named": true
+        }
+      ]
+    }
+  },
+  {
+    "type": "preproc_line",
+    "named": true,
+    "extra": true,
+    "fields": {},
+    "children": {
+      "multiple": true,
+      "required": false,
+      "types": [
+        {
+          "type": "integer_literal",
+          "named": true
+        },
+        {
+          "type": "string_literal",
+          "named": true
+        }
+      ]
+    }
+  },
+  {
+    "type": "preproc_nullable",
+    "named": true,
+    "extra": true,
+    "fields": {}
+  },
+  {
+    "type": "preproc_pragma",
+    "named": true,
+    "extra": true,
+    "fields": {},
+    "children": {
+      "multiple": true,
+      "required": false,
+      "types": [
+        {
+          "type": "identifier",
+          "named": true
+        },
+        {
+          "type": "integer_literal",
+          "named": true
+        },
+        {
+          "type": "string_literal",
+          "named": true
+        }
+      ]
+    }
+  },
+  {
+    "type": "preproc_region",
+    "named": true,
+    "extra": true,
+    "fields": {
+      "content": {
+        "multiple": false,
+        "required": false,
+        "types": [
+          {
+            "type": "preproc_arg",
+            "named": true
+          }
+        ]
+      }
+    }
+  },
+  {
+    "type": "preproc_undef",
+    "named": true,
+    "extra": true,
+    "fields": {},
+    "children": {
+      "multiple": false,
+      "required": true,
+      "types": [
+        {
+          "type": "preproc_arg",
+          "named": true
+        }
+      ]
+    }
+  },
+  {
+    "type": "preproc_warning",
+    "named": true,
+    "extra": true,
+    "fields": {},
+    "children": {
+      "multiple": false,
+      "required": true,
+      "types": [
+        {
+          "type": "preproc_arg",
           "named": true
         }
       ]
@@ -5574,10 +5717,6 @@
           "named": true
         },
         {
-          "type": "do_statement",
-          "named": true
-        },
-        {
           "type": "element",
           "named": true
         },
@@ -5598,19 +5737,7 @@
           "named": true
         },
         {
-          "type": "for_statement",
-          "named": true
-        },
-        {
-          "type": "foreach_statement",
-          "named": true
-        },
-        {
           "type": "identifier",
-          "named": true
-        },
-        {
-          "type": "if_statement",
           "named": true
         },
         {
@@ -5626,10 +5753,6 @@
           "named": true
         },
         {
-          "type": "lock_statement",
-          "named": true
-        },
-        {
           "type": "member_access_expression",
           "named": true
         },
@@ -5638,7 +5761,7 @@
           "named": true
         },
         {
-          "type": "preproc",
+          "type": "razor_statement",
           "named": true
         },
         {
@@ -5650,27 +5773,11 @@
           "named": true
         },
         {
-          "type": "switch_statement",
-          "named": true
-        },
-        {
           "type": "throw_statement",
           "named": true
         },
         {
-          "type": "try_statement",
-          "named": true
-        },
-        {
-          "type": "using_statement",
-          "named": true
-        },
-        {
           "type": "void_element",
-          "named": true
-        },
-        {
-          "type": "while_statement",
           "named": true
         }
       ]
@@ -5701,10 +5808,6 @@
           "named": true
         },
         {
-          "type": "do_statement",
-          "named": true
-        },
-        {
           "type": "element",
           "named": true
         },
@@ -5725,19 +5828,7 @@
           "named": true
         },
         {
-          "type": "for_statement",
-          "named": true
-        },
-        {
-          "type": "foreach_statement",
-          "named": true
-        },
-        {
           "type": "identifier",
-          "named": true
-        },
-        {
-          "type": "if_statement",
           "named": true
         },
         {
@@ -5753,10 +5844,6 @@
           "named": true
         },
         {
-          "type": "lock_statement",
-          "named": true
-        },
-        {
           "type": "member_access_expression",
           "named": true
         },
@@ -5765,7 +5852,7 @@
           "named": true
         },
         {
-          "type": "preproc",
+          "type": "razor_statement",
           "named": true
         },
         {
@@ -5777,27 +5864,11 @@
           "named": true
         },
         {
-          "type": "switch_statement",
-          "named": true
-        },
-        {
           "type": "throw_statement",
           "named": true
         },
         {
-          "type": "try_statement",
-          "named": true
-        },
-        {
-          "type": "using_statement",
-          "named": true
-        },
-        {
           "type": "void_element",
-          "named": true
-        },
-        {
-          "type": "while_statement",
           "named": true
         }
       ]
@@ -5816,6 +5887,46 @@
           "named": true
         }
       ]
+    }
+  },
+  {
+    "type": "razor_else_if_clause",
+    "named": true,
+    "fields": {
+      "alternative": {
+        "multiple": false,
+        "required": false,
+        "types": [
+          {
+            "type": "else_clause",
+            "named": true
+          },
+          {
+            "type": "razor_else_if_clause",
+            "named": true
+          }
+        ]
+      },
+      "condition": {
+        "multiple": false,
+        "required": true,
+        "types": [
+          {
+            "type": "expression",
+            "named": true
+          }
+        ]
+      },
+      "consequence": {
+        "multiple": false,
+        "required": true,
+        "types": [
+          {
+            "type": "razor_block",
+            "named": true
+          }
+        ]
+      }
     }
   },
   {
@@ -5943,16 +6054,27 @@
   {
     "type": "razor_inject_directive",
     "named": true,
-    "fields": {},
-    "children": {
-      "multiple": true,
-      "required": true,
-      "types": [
-        {
-          "type": "type",
-          "named": true
-        }
-      ]
+    "fields": {
+      "name": {
+        "multiple": false,
+        "required": true,
+        "types": [
+          {
+            "type": "identifier",
+            "named": true
+          }
+        ]
+      },
+      "type": {
+        "multiple": false,
+        "required": true,
+        "types": [
+          {
+            "type": "type",
+            "named": true
+          }
+        ]
+      }
     }
   },
   {
@@ -6254,10 +6376,6 @@
           "named": true
         },
         {
-          "type": "do_statement",
-          "named": true
-        },
-        {
           "type": "element",
           "named": true
         },
@@ -6278,19 +6396,7 @@
           "named": true
         },
         {
-          "type": "for_statement",
-          "named": true
-        },
-        {
-          "type": "foreach_statement",
-          "named": true
-        },
-        {
           "type": "identifier",
-          "named": true
-        },
-        {
-          "type": "if_statement",
           "named": true
         },
         {
@@ -6306,10 +6412,6 @@
           "named": true
         },
         {
-          "type": "lock_statement",
-          "named": true
-        },
-        {
           "type": "member_access_expression",
           "named": true
         },
@@ -6322,7 +6424,7 @@
           "named": true
         },
         {
-          "type": "preproc",
+          "type": "razor_statement",
           "named": true
         },
         {
@@ -6334,19 +6436,7 @@
           "named": true
         },
         {
-          "type": "switch_statement",
-          "named": true
-        },
-        {
           "type": "throw_statement",
-          "named": true
-        },
-        {
-          "type": "try_statement",
-          "named": true
-        },
-        {
-          "type": "using_statement",
           "named": true
         },
         {
@@ -6355,10 +6445,6 @@
         },
         {
           "type": "when_clause",
-          "named": true
-        },
-        {
-          "type": "while_statement",
           "named": true
         }
       ]
@@ -8022,6 +8108,10 @@
     "named": false
   },
   {
+    "type": "#define",
+    "named": false
+  },
+  {
     "type": "#elif",
     "named": false
   },
@@ -8034,7 +8124,39 @@
     "named": false
   },
   {
+    "type": "#endregion",
+    "named": false
+  },
+  {
+    "type": "#error",
+    "named": false
+  },
+  {
     "type": "#if",
+    "named": false
+  },
+  {
+    "type": "#line",
+    "named": false
+  },
+  {
+    "type": "#nullable",
+    "named": false
+  },
+  {
+    "type": "#pragma",
+    "named": false
+  },
+  {
+    "type": "#region",
+    "named": false
+  },
+  {
+    "type": "#undef",
+    "named": false
+  },
+  {
+    "type": "#warning",
     "named": false
   },
   {
@@ -8234,7 +8356,23 @@
     "named": false
   },
   {
+    "type": "@do",
+    "named": false
+  },
+  {
+    "type": "@for",
+    "named": false
+  },
+  {
+    "type": "@foreach",
+    "named": false
+  },
+  {
     "type": "@functions",
+    "named": false
+  },
+  {
+    "type": "@if",
     "named": false
   },
   {
@@ -8251,6 +8389,10 @@
   },
   {
     "type": "@layout",
+    "named": false
+  },
+  {
+    "type": "@lock",
     "named": false
   },
   {
@@ -8282,11 +8424,27 @@
     "named": false
   },
   {
+    "type": "@switch",
+    "named": false
+  },
+  {
     "type": "@tagHelperPrefix",
     "named": false
   },
   {
+    "type": "@try",
+    "named": false
+  },
+  {
     "type": "@typeparam",
+    "named": false
+  },
+  {
+    "type": "@using",
+    "named": false
+  },
+  {
+    "type": "@while",
     "named": false
   },
   {
@@ -8354,6 +8512,10 @@
     "named": false
   },
   {
+    "type": "annotations",
+    "named": false
+  },
+  {
     "type": "as",
     "named": false
   },
@@ -8402,6 +8564,10 @@
     "named": false
   },
   {
+    "type": "checksum",
+    "named": false
+  },
+  {
     "type": "class",
     "named": false
   },
@@ -8426,6 +8592,10 @@
     "named": false
   },
   {
+    "type": "disable",
+    "named": false
+  },
+  {
     "type": "discard",
     "named": true
   },
@@ -8439,6 +8609,10 @@
   },
   {
     "type": "else",
+    "named": false
+  },
+  {
+    "type": "enable",
     "named": false
   },
   {
@@ -8515,6 +8689,10 @@
   },
   {
     "type": "group",
+    "named": false
+  },
+  {
+    "type": "hidden",
     "named": false
   },
   {
@@ -8658,6 +8836,10 @@
     "named": true
   },
   {
+    "type": "preproc_arg",
+    "named": true
+  },
+  {
     "type": "private",
     "named": false
   },
@@ -8711,6 +8893,10 @@
   },
   {
     "type": "required",
+    "named": false
+  },
+  {
+    "type": "restore",
     "named": false
   },
   {
@@ -8823,6 +9009,14 @@
   },
   {
     "type": "volatile",
+    "named": false
+  },
+  {
+    "type": "warning",
+    "named": false
+  },
+  {
+    "type": "warnings",
     "named": false
   },
   {
