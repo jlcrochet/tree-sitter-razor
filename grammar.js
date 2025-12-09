@@ -176,13 +176,13 @@ module.exports = grammar(csharp, {
     // Nested statement definitions - use external @keyword tokens (single token, avoids seq overhead)
     _nested_if_statement: $ => seq(alias($._nested_at_if, '@if'), $._razor_if_statement_body),
     _nested_for_statement: $ => seq(alias($._nested_at_for, '@for'), $._razor_for_statement_body),
-    _nested_foreach_statement: $ => seq(optional('await'), alias($._nested_at_foreach, '@foreach'), $._razor_foreach_statement_body),
+    _nested_foreach_statement: $ => seq(alias($._nested_at_foreach, '@foreach'), $._razor_foreach_statement_body),
     _nested_while_statement: $ => seq(alias($._nested_at_while, '@while'), $._razor_while_statement_body),
     _nested_do_statement: $ => seq(alias($._nested_at_do, '@do'), $._razor_do_statement_body),
     _nested_switch_statement: $ => seq(alias($._nested_at_switch, '@switch'), $._razor_switch_statement_body),
     _nested_try_statement: $ => seq(alias($._nested_at_try, '@try'), $._razor_try_statement_body),
     _nested_lock_statement: $ => seq(alias($._nested_at_lock, '@lock'), $._razor_lock_statement_body),
-    _nested_using_statement: $ => seq(optional('await'), alias($._nested_at_using, '@using'), $._razor_using_statement_body),
+    _nested_using_statement: $ => seq(alias($._nested_at_using, '@using'), $._razor_using_statement_body),
 
     // Nested Razor expressions inside a block - uses external @ token
     _nested_razor_explicit_expression: $ => seq(
@@ -299,7 +299,7 @@ module.exports = grammar(csharp, {
     // -------------------------------------------------------------------------
     // Razor foreach statement
     // -------------------------------------------------------------------------
-    _razor_foreach_statement: $ => seq(optional('await'), token(prec(100, '@foreach')), $._razor_foreach_statement_body),
+    _razor_foreach_statement: $ => seq(token(prec(100, '@foreach')), $._razor_foreach_statement_body),
     _razor_foreach_statement_body: $ => seq(
       '(',
       choice(
@@ -410,7 +410,7 @@ module.exports = grammar(csharp, {
     // -------------------------------------------------------------------------
     // Razor using statement (not directive)
     // -------------------------------------------------------------------------
-    _razor_using_statement: $ => seq(optional('await'), token(prec(100, '@using')), $._razor_using_statement_body),
+    _razor_using_statement: $ => seq(token(prec(100, '@using')), $._razor_using_statement_body),
     _razor_using_statement_body: $ => seq(
       '(',
       choice(
@@ -964,17 +964,26 @@ module.exports = grammar(csharp, {
     // Implicit expression: @identifier, @identifier.property, @identifier.Method()
     // The _implicit_expr_end token is zero-width and matches when whitespace or
     // a non-continuation character follows, forcing the expression to end
-    razor_implicit_expression: $ => seq(
-      '@',
-      $._razor_implicit_expr_chain,
-      $._implicit_expr_end,
+    razor_implicit_expression: $ => choice(
+      // @await expression - uses single token like other directives
+      seq(
+        token(prec(100, '@await')),
+        alias($._razor_await_expression, $.await_expression),
+        $._implicit_expr_end,
+      ),
+      // Regular implicit expression
+      seq(
+        '@',
+        $._razor_implicit_expr_chain,
+        $._implicit_expr_end,
+      ),
     ),
 
     // Chain of member access, method calls, and indexers starting from identifier
-    _razor_implicit_expr_chain: $ => choice(
-      $.await_expression,
-      $._razor_access_chain,
-    ),
+    _razor_implicit_expr_chain: $ => $._razor_access_chain,
+
+    // Razor-specific await expression body (after @await token)
+    _razor_await_expression: $ => prec.right($._razor_access_chain),
 
     // Matches: identifier, identifier.member, identifier.method(), identifier[index], identifier?.member
     // Also matches literal keywords: true, false, null

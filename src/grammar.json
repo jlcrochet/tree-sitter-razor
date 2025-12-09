@@ -12135,18 +12135,6 @@
       "type": "SEQ",
       "members": [
         {
-          "type": "CHOICE",
-          "members": [
-            {
-              "type": "STRING",
-              "value": "await"
-            },
-            {
-              "type": "BLANK"
-            }
-          ]
-        },
-        {
           "type": "ALIAS",
           "content": {
             "type": "SYMBOL",
@@ -12254,18 +12242,6 @@
     "_nested_using_statement": {
       "type": "SEQ",
       "members": [
-        {
-          "type": "CHOICE",
-          "members": [
-            {
-              "type": "STRING",
-              "value": "await"
-            },
-            {
-              "type": "BLANK"
-            }
-          ]
-        },
         {
           "type": "ALIAS",
           "content": {
@@ -12675,18 +12651,6 @@
     "_razor_foreach_statement": {
       "type": "SEQ",
       "members": [
-        {
-          "type": "CHOICE",
-          "members": [
-            {
-              "type": "STRING",
-              "value": "await"
-            },
-            {
-              "type": "BLANK"
-            }
-          ]
-        },
         {
           "type": "TOKEN",
           "content": {
@@ -13230,18 +13194,6 @@
     "_razor_using_statement": {
       "type": "SEQ",
       "members": [
-        {
-          "type": "CHOICE",
-          "members": [
-            {
-              "type": "STRING",
-              "value": "await"
-            },
-            {
-              "type": "BLANK"
-            }
-          ]
-        },
         {
           "type": "TOKEN",
           "content": {
@@ -14876,34 +14828,67 @@
       ]
     },
     "razor_implicit_expression": {
-      "type": "SEQ",
+      "type": "CHOICE",
       "members": [
         {
-          "type": "STRING",
-          "value": "@"
+          "type": "SEQ",
+          "members": [
+            {
+              "type": "TOKEN",
+              "content": {
+                "type": "PREC",
+                "value": 100,
+                "content": {
+                  "type": "STRING",
+                  "value": "@await"
+                }
+              }
+            },
+            {
+              "type": "ALIAS",
+              "content": {
+                "type": "SYMBOL",
+                "name": "_razor_await_expression"
+              },
+              "named": true,
+              "value": "await_expression"
+            },
+            {
+              "type": "SYMBOL",
+              "name": "_implicit_expr_end"
+            }
+          ]
         },
         {
-          "type": "SYMBOL",
-          "name": "_razor_implicit_expr_chain"
-        },
-        {
-          "type": "SYMBOL",
-          "name": "_implicit_expr_end"
+          "type": "SEQ",
+          "members": [
+            {
+              "type": "STRING",
+              "value": "@"
+            },
+            {
+              "type": "SYMBOL",
+              "name": "_razor_implicit_expr_chain"
+            },
+            {
+              "type": "SYMBOL",
+              "name": "_implicit_expr_end"
+            }
+          ]
         }
       ]
     },
     "_razor_implicit_expr_chain": {
-      "type": "CHOICE",
-      "members": [
-        {
-          "type": "SYMBOL",
-          "name": "await_expression"
-        },
-        {
-          "type": "SYMBOL",
-          "name": "_razor_access_chain"
-        }
-      ]
+      "type": "SYMBOL",
+      "name": "_razor_access_chain"
+    },
+    "_razor_await_expression": {
+      "type": "PREC_RIGHT",
+      "value": 0,
+      "content": {
+        "type": "SYMBOL",
+        "name": "_razor_access_chain"
+      }
     },
     "_razor_access_chain": {
       "type": "CHOICE",
