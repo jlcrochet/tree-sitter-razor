@@ -677,3 +677,88 @@ Textarea content with textarea-like text that should not terminate
     (textarea_content)
     (textarea_end_tag
       (element_name))))
+
+================================================================================
+Named character reference
+================================================================================
+<p>&amp; &lt; &gt; &nbsp;</p>
+--------------------------------------------------------------------------------
+
+(compilation_unit
+  (element
+    (start_tag
+      (element_name))
+    (html_character_reference)
+    (text)
+    (html_character_reference)
+    (text)
+    (html_character_reference)
+    (text)
+    (html_character_reference)
+    (end_tag
+      (element_name))))
+
+================================================================================
+Decimal numeric character reference
+================================================================================
+<p>&#65;&#66;&#67;</p>
+--------------------------------------------------------------------------------
+
+(compilation_unit
+  (element
+    (start_tag
+      (element_name))
+    (html_character_reference)
+    (html_character_reference)
+    (html_character_reference)
+    (end_tag
+      (element_name))))
+
+================================================================================
+Hexadecimal numeric character reference
+================================================================================
+<p>&#x41;&#X42;&#x43;</p>
+--------------------------------------------------------------------------------
+
+(compilation_unit
+  (element
+    (start_tag
+      (element_name))
+    (html_character_reference)
+    (html_character_reference)
+    (html_character_reference)
+    (end_tag
+      (element_name))))
+
+================================================================================
+Character reference in attribute value
+================================================================================
+<a href="?a=1&amp;b=2">link</a>
+--------------------------------------------------------------------------------
+
+(compilation_unit
+  (element
+    (start_tag
+      (element_name)
+      (html_attribute
+        (html_attribute_name)
+        (html_attribute_value
+          (html_quoted_attribute_value
+            (html_character_reference)))))
+    (text)
+    (end_tag
+      (element_name))))
+
+================================================================================
+Bare ampersand in text
+================================================================================
+<p>Tom & Jerry</p>
+--------------------------------------------------------------------------------
+
+(compilation_unit
+  (element
+    (start_tag
+      (element_name))
+    (text)
+    (end_tag
+      (element_name))))

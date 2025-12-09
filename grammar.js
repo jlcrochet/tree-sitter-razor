@@ -96,6 +96,7 @@ module.exports = grammar(csharp, {
       $.razor_explicit_expression,
       $.razor_implicit_expression,
       $.escaped_at,
+      $.html_character_reference,
       $._top_level_text,
     ),
 
@@ -109,6 +110,12 @@ module.exports = grammar(csharp, {
 
     // @@ escapes to a literal @ character
     escaped_at: _ => '@@',
+
+    // HTML character references (entities)
+    // Named: &amp; &lt; &gt; &nbsp; etc.
+    // Decimal numeric: &#65; &#160; etc.
+    // Hexadecimal numeric: &#x41; &#xA0; etc.
+    html_character_reference: _ => /&(#[0-9]+|#[xX][0-9a-fA-F]+|[a-zA-Z][a-zA-Z0-9]*);/,
 
     // =========================================================================
     // Razor Statements (@if, @foreach, etc.)
@@ -472,6 +479,7 @@ module.exports = grammar(csharp, {
       $.razor_explicit_expression,
       $.razor_implicit_expression,
       $.escaped_at,
+      $.html_character_reference,
       $.text,  // Regular text, not keyword-aware
     ),
 
@@ -647,17 +655,19 @@ module.exports = grammar(csharp, {
     ),
 
     _html_double_quoted_attribute_content: $ => repeat1(choice(
-      /[^"@]+/,
+      /[^"@&]+/,
       // Email/literal @ in attribute values (e.g., mailto:user@example.com)
       $._text_with_literal_at,
+      $.html_character_reference,
       $.razor_explicit_expression,
       $.razor_implicit_expression,
     )),
 
     _html_single_quoted_attribute_content: $ => repeat1(choice(
-      /[^'@]+/,
+      /[^'@&]+/,
       // Email/literal @ in attribute values
       $._text_with_literal_at,
+      $.html_character_reference,
       $.razor_explicit_expression,
       $.razor_implicit_expression,
     )),
@@ -1082,10 +1092,11 @@ module.exports = grammar(csharp, {
 
     // Top-level text that can appear between Razor statements
     // Uses external scanner to stop before else/catch/finally keywords
+    // Note: The external scanner handles & intelligently - stops only for valid character references
     _top_level_text: $ => choice(
       // Text containing literal @ (email addresses like user@example.com)
       prec(1, alias($._text_with_literal_at, $.text)),
-      // Main text content - uses external scanner to be keyword-aware
+      // Main text content - uses external scanner to be keyword-aware and handle & properly
       alias($._html_text_content, $.text),
       // Fallback for text that doesn't start with keyword characters
       // Excludes: e/c/f (keywords), < (HTML), @ (Razor), [ ( (expression), \n, " ' (strings), whitespace, . (C# qualified names)
@@ -1099,17 +1110,21 @@ module.exports = grammar(csharp, {
       alias(prec(-200, /\./), $.text),
     ),
 
-    // Text inside elements - doesn't need to stop at keywords
-    // Excludes [ ( which are handled separately for implicit expression chaining
-    // Note: . is allowed since implicit expressions use token.immediate('.')
-    text: $ => choice(
+    // Text inside elements - combines consecutive text fragments into a single node
+    // This allows bare & to be part of text while still recognizing character references
+    text: $ => prec.right(repeat1($._text_fragment)),
+
+    // Individual text fragments - separated by & or character references
+    _text_fragment: $ => choice(
       // Text containing literal @ (email addresses like user@example.com)
-      prec(1, alias($._text_with_literal_at, $.text)),
-      // Regular text content - includes . since implicit expressions handle it
-      prec(-10, /[^<@\[(]+/),
+      prec(1, $._text_with_literal_at),
+      // Regular text content
+      prec(-10, /[^<@\[(&]+/),
       // Punctuation that could be expression continuations, but parsed as text
       // when not following an identifier (lower precedence than implicit expressions)
       prec(-20, /[\[(]/),
+      // Literal & that doesn't start a valid character reference
+      prec(-10, '&'),
     ),
 
   },

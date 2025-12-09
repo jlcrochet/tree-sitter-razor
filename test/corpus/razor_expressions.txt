@@ -28,8 +28,7 @@ Email address as literal text
         (html_attribute_name)
         (html_attribute_value
           (html_quoted_attribute_value))))
-    (text
-      (text))
+    (text)
     (end_tag
       (element_name))))
 
@@ -49,8 +48,7 @@ Email address inside Razor block
         (element
           (start_tag
             (element_name))
-          (text
-            (text))
+          (text)
           (end_tag
             (element_name)))))))
 
