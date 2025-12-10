@@ -646,6 +646,10 @@ module.exports = grammar(csharp, {
 
     html_attribute_value: $ => choice(
       $.html_quoted_attribute_value,
+      // Razor expressions as unquoted values: Property=@(s => s.Id) or Items=@Model.Items
+      $.razor_explicit_expression,
+      $.razor_implicit_expression,
+      // Plain unquoted value (no @ or Razor): class=my-class
       $.html_unquoted_attribute_value,
     ),
 
@@ -672,16 +676,8 @@ module.exports = grammar(csharp, {
       $.razor_implicit_expression,
     )),
 
-    // Unquoted attribute value - can be plain text or Razor expressions
-    // In Blazor, you often see: Property=@(s => s.Id) or Items=@Model.Items
-    html_unquoted_attribute_value: $ => choice(
-      // Razor explicit expression as unquoted value: Property=@(s => s.Id)
-      $.razor_explicit_expression,
-      // Razor implicit expression as unquoted value: Items=@Model.Items
-      $.razor_implicit_expression,
-      // Plain unquoted value (no @ or Razor): class=my-class
-      /[^\s"'=<>`@]+/,
-    ),
+    // Plain unquoted attribute value (no @ or Razor): class=my-class
+    html_unquoted_attribute_value: _ => /[^\s"'=<>`@]+/,
 
     // Razor-specific attribute (e.g., @onclick, @bind)
     // Uses token.immediate() to prevent whitespace between @ and attribute name

@@ -14119,6 +14119,14 @@
         },
         {
           "type": "SYMBOL",
+          "name": "razor_explicit_expression"
+        },
+        {
+          "type": "SYMBOL",
+          "name": "razor_implicit_expression"
+        },
+        {
+          "type": "SYMBOL",
           "name": "html_unquoted_attribute_value"
         }
       ]
@@ -14235,21 +14243,8 @@
       }
     },
     "html_unquoted_attribute_value": {
-      "type": "CHOICE",
-      "members": [
-        {
-          "type": "SYMBOL",
-          "name": "razor_explicit_expression"
-        },
-        {
-          "type": "SYMBOL",
-          "name": "razor_implicit_expression"
-        },
-        {
-          "type": "PATTERN",
-          "value": "[^\\s\"'=<>`@]+"
-        }
-      ]
+      "type": "PATTERN",
+      "value": "[^\\s\"'=<>`@]+"
     },
     "razor_attribute": {
       "type": "CHOICE",

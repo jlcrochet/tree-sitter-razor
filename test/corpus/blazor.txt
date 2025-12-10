@@ -144,13 +144,12 @@ Unquoted attribute with explicit expression
     (html_attribute
       (html_attribute_name)
       (html_attribute_value
-        (html_unquoted_attribute_value
-          (razor_explicit_expression
-            (lambda_expression
-              (implicit_parameter)
-              (member_access_expression
-                (identifier)
-                (identifier)))))))))
+        (razor_explicit_expression
+          (lambda_expression
+            (implicit_parameter)
+            (member_access_expression
+              (identifier)
+              (identifier))))))))
 
 ================================================================================
 Unquoted attribute with implicit expression
@@ -164,11 +163,10 @@ Unquoted attribute with implicit expression
     (html_attribute
       (html_attribute_name)
       (html_attribute_value
-        (html_unquoted_attribute_value
-          (razor_implicit_expression
-            (member_access_expression
-              (identifier)
-              (identifier))))))))
+        (razor_implicit_expression
+          (member_access_expression
+            (identifier)
+            (identifier)))))))
 
 ================================================================================
 Await expression
