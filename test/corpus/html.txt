@@ -16,10 +16,10 @@ Simple HTML element
 (compilation_unit
   (element
     (start_tag
-      (element_name))
+      (tag_name))
     (text)
     (end_tag
-      (element_name))))
+      (tag_name))))
 
 ================================================================================
 Self-closing non-void element
@@ -29,7 +29,7 @@ Self-closing non-void element
 
 (compilation_unit
   (self_closing_element
-    (element_name)))
+    (tag_name)))
 
 ================================================================================
 Tag Helper opt-out element
@@ -40,10 +40,10 @@ Tag Helper opt-out element
 (compilation_unit
   (element
     (start_tag
-      name: (element_name))
+      name: (tag_name))
     (text)
     (end_tag
-      name: (element_name))))
+      name: (tag_name))))
 
 ================================================================================
 Nested elements
@@ -54,15 +54,15 @@ Nested elements
 (compilation_unit
   (element
     (start_tag
-      (element_name))
+      (tag_name))
     (element
       (start_tag
-        (element_name))
+        (tag_name))
       (text)
       (end_tag
-        (element_name)))
+        (tag_name)))
     (end_tag
-      (element_name))))
+      (tag_name))))
 
 ================================================================================
 Element with attribute
@@ -73,14 +73,14 @@ Element with attribute
 (compilation_unit
   (element
     (start_tag
-      (element_name)
+      (tag_name)
       (html_attribute
         (html_attribute_name)
         (html_attribute_value
           (html_quoted_attribute_value))))
     (text)
     (end_tag
-      (element_name))))
+      (tag_name))))
 
 ================================================================================
 Non-void element with multiple attributes
@@ -90,7 +90,7 @@ Non-void element with multiple attributes
 
 (compilation_unit
   (self_closing_element
-    (element_name)
+    (tag_name)
     (html_attribute
       (html_attribute_name)
       (html_attribute_value
@@ -111,12 +111,12 @@ Boolean attribute
 (compilation_unit
   (element
     (start_tag
-      (element_name)
+      (tag_name)
       (html_attribute
         (html_attribute_name)))
     (text)
     (end_tag
-      (element_name))))
+      (tag_name))))
 
 ================================================================================
 Single quoted attribute
@@ -127,13 +127,13 @@ Single quoted attribute
 (compilation_unit
   (element
     (start_tag
-      (element_name)
+      (tag_name)
       (html_attribute
         (html_attribute_name)
         (html_attribute_value
           (html_quoted_attribute_value))))
     (end_tag
-      (element_name))))
+      (tag_name))))
 
 ================================================================================
 Script element with content
@@ -145,12 +145,12 @@ Script element with content
 --------------------------------------------------------------------------------
 
 (compilation_unit
-  (script_element
-    (script_start_tag
-      (element_name))
-    (script_content)
-    (script_end_tag
-      (element_name))))
+  (element
+    (start_tag
+      (tag_name))
+    (raw_text)
+    (end_tag
+      (tag_name))))
 
 ================================================================================
 Script element with attribute
@@ -159,15 +159,15 @@ Script element with attribute
 --------------------------------------------------------------------------------
 
 (compilation_unit
-  (script_element
-    (script_start_tag
-      (element_name)
+  (element
+    (start_tag
+      (tag_name)
       (html_attribute
         (html_attribute_name)
         (html_attribute_value
           (html_quoted_attribute_value))))
-    (script_end_tag
-      (element_name))))
+    (end_tag
+      (tag_name))))
 
 ================================================================================
 Empty script element
@@ -176,11 +176,11 @@ Empty script element
 --------------------------------------------------------------------------------
 
 (compilation_unit
-  (script_element
-    (script_start_tag
-      (element_name))
-    (script_end_tag
-      (element_name))))
+  (element
+    (start_tag
+      (tag_name))
+    (end_tag
+      (tag_name))))
 
 ================================================================================
 Style element with content
@@ -191,12 +191,12 @@ Style element with content
 --------------------------------------------------------------------------------
 
 (compilation_unit
-  (style_element
-    (style_start_tag
-      (element_name))
-    (style_content)
-    (style_end_tag
-      (element_name))))
+  (element
+    (start_tag
+      (tag_name))
+    (raw_text)
+    (end_tag
+      (tag_name))))
 
 ================================================================================
 Style element with attribute
@@ -205,15 +205,15 @@ Style element with attribute
 --------------------------------------------------------------------------------
 
 (compilation_unit
-  (style_element
-    (style_start_tag
-      (element_name)
+  (element
+    (start_tag
+      (tag_name)
       (html_attribute
         (html_attribute_name)
         (html_attribute_value
           (html_quoted_attribute_value))))
-    (style_end_tag
-      (element_name))))
+    (end_tag
+      (tag_name))))
 
 ================================================================================
 Script element preserves raw content
@@ -222,12 +222,12 @@ Script element preserves raw content
 --------------------------------------------------------------------------------
 
 (compilation_unit
-  (script_element
-    (script_start_tag
-      (element_name))
-    (script_content)
-    (script_end_tag
-      (element_name))))
+  (element
+    (start_tag
+      (tag_name))
+    (raw_text)
+    (end_tag
+      (tag_name))))
 
 ================================================================================
 Title element
@@ -236,12 +236,12 @@ Title element
 --------------------------------------------------------------------------------
 
 (compilation_unit
-  (title_element
-    (title_start_tag
-      (element_name))
-    (title_content)
-    (title_end_tag
-      (element_name))))
+  (element
+    (start_tag
+      (tag_name))
+    (escapable_raw_text)
+    (end_tag
+      (tag_name))))
 
 ================================================================================
 Empty title element
@@ -250,11 +250,11 @@ Empty title element
 --------------------------------------------------------------------------------
 
 (compilation_unit
-  (title_element
-    (title_start_tag
-      (element_name))
-    (title_end_tag
-      (element_name))))
+  (element
+    (start_tag
+      (tag_name))
+    (end_tag
+      (tag_name))))
 
 ================================================================================
 Textarea element
@@ -263,12 +263,12 @@ Textarea element
 --------------------------------------------------------------------------------
 
 (compilation_unit
-  (textarea_element
-    (textarea_start_tag
-      (element_name))
-    (textarea_content)
-    (textarea_end_tag
-      (element_name))))
+  (element
+    (start_tag
+      (tag_name))
+    (escapable_raw_text)
+    (end_tag
+      (tag_name))))
 
 ================================================================================
 Textarea with attributes
@@ -277,9 +277,9 @@ Textarea with attributes
 --------------------------------------------------------------------------------
 
 (compilation_unit
-  (textarea_element
-    (textarea_start_tag
-      (element_name)
+  (element
+    (start_tag
+      (tag_name)
       (html_attribute
         (html_attribute_name)
         (html_attribute_value
@@ -288,8 +288,8 @@ Textarea with attributes
         (html_attribute_name)
         (html_attribute_value
           (html_quoted_attribute_value))))
-    (textarea_end_tag
-      (element_name))))
+    (end_tag
+      (tag_name))))
 
 ================================================================================
 Void element: br
@@ -299,7 +299,7 @@ Void element: br
 
 (compilation_unit
   (void_element
-    (element_name)))
+    (tag_name)))
 
 ================================================================================
 Void element: br with optional slash
@@ -309,7 +309,7 @@ Void element: br with optional slash
 
 (compilation_unit
   (void_element
-    (element_name)))
+    (tag_name)))
 
 ================================================================================
 Void element: hr
@@ -319,7 +319,7 @@ Void element: hr
 
 (compilation_unit
   (void_element
-    (element_name)))
+    (tag_name)))
 
 ================================================================================
 Void element: img with attributes
@@ -329,7 +329,7 @@ Void element: img with attributes
 
 (compilation_unit
   (void_element
-    (element_name)
+    (tag_name)
     (html_attribute
       (html_attribute_name)
       (html_attribute_value
@@ -347,7 +347,7 @@ Void element: input with attributes
 
 (compilation_unit
   (void_element
-    (element_name)
+    (tag_name)
     (html_attribute
       (html_attribute_name)
       (html_attribute_value
@@ -367,7 +367,7 @@ Void element: meta
 
 (compilation_unit
   (void_element
-    (element_name)
+    (tag_name)
     (html_attribute
       (html_attribute_name)
       (html_attribute_value
@@ -381,7 +381,7 @@ Void element: link
 
 (compilation_unit
   (void_element
-    (element_name)
+    (tag_name)
     (html_attribute
       (html_attribute_name)
       (html_attribute_value
@@ -399,7 +399,7 @@ Void element: base
 
 (compilation_unit
   (void_element
-    (element_name)
+    (tag_name)
     (html_attribute
       (html_attribute_name)
       (html_attribute_value
@@ -413,7 +413,7 @@ Void element: col
 
 (compilation_unit
   (void_element
-    (element_name)
+    (tag_name)
     (html_attribute
       (html_attribute_name)
       (html_attribute_value
@@ -427,7 +427,7 @@ Void element: embed
 
 (compilation_unit
   (void_element
-    (element_name)
+    (tag_name)
     (html_attribute
       (html_attribute_name)
       (html_attribute_value
@@ -445,7 +445,7 @@ Void element: source
 
 (compilation_unit
   (void_element
-    (element_name)
+    (tag_name)
     (html_attribute
       (html_attribute_name)
       (html_attribute_value
@@ -463,7 +463,7 @@ Void element: track
 
 (compilation_unit
   (void_element
-    (element_name)
+    (tag_name)
     (html_attribute
       (html_attribute_name)
       (html_attribute_value
@@ -481,7 +481,7 @@ Void element: wbr
 
 (compilation_unit
   (void_element
-    (element_name)))
+    (tag_name)))
 
 ================================================================================
 Void element: area
@@ -491,7 +491,7 @@ Void element: area
 
 (compilation_unit
   (void_element
-    (element_name)
+    (tag_name)
     (html_attribute
       (html_attribute_name)
       (html_attribute_value
@@ -514,11 +514,11 @@ Void element inside element
 (compilation_unit
   (element
     (start_tag
-      (element_name))
+      (tag_name))
     (void_element
-      (element_name))
+      (tag_name))
     (end_tag
-      (element_name))))
+      (tag_name))))
 
 ================================================================================
 Multiple void elements
@@ -530,11 +530,11 @@ Multiple void elements
 
 (compilation_unit
   (void_element
-    (element_name))
+    (tag_name))
   (void_element
-    (element_name))
+    (tag_name))
   (void_element
-    (element_name)))
+    (tag_name)))
 
 ================================================================================
 Void element case insensitive
@@ -546,11 +546,11 @@ Void element case insensitive
 
 (compilation_unit
   (void_element
-    (element_name))
+    (tag_name))
   (void_element
-    (element_name))
+    (tag_name))
   (void_element
-    (element_name)
+    (tag_name)
     (html_attribute
       (html_attribute_name)
       (html_attribute_value
@@ -564,7 +564,7 @@ Void element with Tag Helper opt-out
 
 (compilation_unit
   (void_element
-    (element_name)))
+    (tag_name)))
 
 ================================================================================
 Script element case insensitive
@@ -573,12 +573,12 @@ Script element case insensitive
 --------------------------------------------------------------------------------
 
 (compilation_unit
-  (script_element
-    (script_start_tag
-      (element_name))
-    (script_content)
-    (script_end_tag
-      (element_name))))
+  (element
+    (start_tag
+      (tag_name))
+    (raw_text)
+    (end_tag
+      (tag_name))))
 
 ================================================================================
 Style element case insensitive
@@ -587,12 +587,12 @@ Style element case insensitive
 --------------------------------------------------------------------------------
 
 (compilation_unit
-  (style_element
-    (style_start_tag
-      (element_name))
-    (style_content)
-    (style_end_tag
-      (element_name))))
+  (element
+    (start_tag
+      (tag_name))
+    (raw_text)
+    (end_tag
+      (tag_name))))
 
 ================================================================================
 Title element case insensitive
@@ -601,12 +601,12 @@ Title element case insensitive
 --------------------------------------------------------------------------------
 
 (compilation_unit
-  (title_element
-    (title_start_tag
-      (element_name))
-    (title_content)
-    (title_end_tag
-      (element_name))))
+  (element
+    (start_tag
+      (tag_name))
+    (escapable_raw_text)
+    (end_tag
+      (tag_name))))
 
 ================================================================================
 Textarea element case insensitive
@@ -615,12 +615,12 @@ Textarea element case insensitive
 --------------------------------------------------------------------------------
 
 (compilation_unit
-  (textarea_element
-    (textarea_start_tag
-      (element_name))
-    (textarea_content)
-    (textarea_end_tag
-      (element_name))))
+  (element
+    (start_tag
+      (tag_name))
+    (escapable_raw_text)
+    (end_tag
+      (tag_name))))
 
 ================================================================================
 Script content with script-like text that should not terminate
@@ -629,12 +629,12 @@ Script content with script-like text that should not terminate
 --------------------------------------------------------------------------------
 
 (compilation_unit
-  (script_element
-    (script_start_tag
-      (element_name))
-    (script_content)
-    (script_end_tag
-      (element_name))))
+  (element
+    (start_tag
+      (tag_name))
+    (raw_text)
+    (end_tag
+      (tag_name))))
 
 ================================================================================
 Style content with style-like text that should not terminate
@@ -643,12 +643,12 @@ Style content with style-like text that should not terminate
 --------------------------------------------------------------------------------
 
 (compilation_unit
-  (style_element
-    (style_start_tag
-      (element_name))
-    (style_content)
-    (style_end_tag
-      (element_name))))
+  (element
+    (start_tag
+      (tag_name))
+    (raw_text)
+    (end_tag
+      (tag_name))))
 
 ================================================================================
 Title content with title-like text that should not terminate
@@ -657,12 +657,12 @@ Title content with title-like text that should not terminate
 --------------------------------------------------------------------------------
 
 (compilation_unit
-  (title_element
-    (title_start_tag
-      (element_name))
-    (title_content)
-    (title_end_tag
-      (element_name))))
+  (element
+    (start_tag
+      (tag_name))
+    (escapable_raw_text)
+    (end_tag
+      (tag_name))))
 
 ================================================================================
 Textarea content with textarea-like text that should not terminate
@@ -671,12 +671,12 @@ Textarea content with textarea-like text that should not terminate
 --------------------------------------------------------------------------------
 
 (compilation_unit
-  (textarea_element
-    (textarea_start_tag
-      (element_name))
-    (textarea_content)
-    (textarea_end_tag
-      (element_name))))
+  (element
+    (start_tag
+      (tag_name))
+    (escapable_raw_text)
+    (end_tag
+      (tag_name))))
 
 ================================================================================
 Named character reference
@@ -687,7 +687,7 @@ Named character reference
 (compilation_unit
   (element
     (start_tag
-      (element_name))
+      (tag_name))
     (html_character_reference)
     (text)
     (html_character_reference)
@@ -696,7 +696,7 @@ Named character reference
     (text)
     (html_character_reference)
     (end_tag
-      (element_name))))
+      (tag_name))))
 
 ================================================================================
 Decimal numeric character reference
@@ -707,12 +707,12 @@ Decimal numeric character reference
 (compilation_unit
   (element
     (start_tag
-      (element_name))
+      (tag_name))
     (html_character_reference)
     (html_character_reference)
     (html_character_reference)
     (end_tag
-      (element_name))))
+      (tag_name))))
 
 ================================================================================
 Hexadecimal numeric character reference
@@ -723,12 +723,12 @@ Hexadecimal numeric character reference
 (compilation_unit
   (element
     (start_tag
-      (element_name))
+      (tag_name))
     (html_character_reference)
     (html_character_reference)
     (html_character_reference)
     (end_tag
-      (element_name))))
+      (tag_name))))
 
 ================================================================================
 Character reference in attribute value
@@ -739,7 +739,7 @@ Character reference in attribute value
 (compilation_unit
   (element
     (start_tag
-      (element_name)
+      (tag_name)
       (html_attribute
         (html_attribute_name)
         (html_attribute_value
@@ -747,7 +747,7 @@ Character reference in attribute value
             (html_character_reference)))))
     (text)
     (end_tag
-      (element_name))))
+      (tag_name))))
 
 ================================================================================
 Bare ampersand in text
@@ -758,7 +758,7 @@ Bare ampersand in text
 (compilation_unit
   (element
     (start_tag
-      (element_name))
+      (tag_name))
     (text)
     (end_tag
-      (element_name))))
+      (tag_name))))

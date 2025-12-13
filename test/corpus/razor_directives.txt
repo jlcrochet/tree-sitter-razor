@@ -95,15 +95,15 @@ Section directive
 (compilation_unit
   (razor_section_directive
     (identifier)
-    (script_element
-      (script_start_tag
-        (element_name)
+    (element
+      (start_tag
+        (tag_name)
         (html_attribute
           (html_attribute_name)
           (html_attribute_value
             (html_quoted_attribute_value))))
-      (script_end_tag
-        (element_name)))))
+      (end_tag
+        (tag_name)))))
 
 ================================================================================
 Layout directive

@@ -35,10 +35,10 @@ Code block with HTML output
           (boolean_literal))))
     (element
       (start_tag
-        (element_name))
+        (tag_name))
       (text)
       (end_tag
-        (element_name)))))
+        (tag_name)))))
 
 ================================================================================
 Code block with text literal
@@ -111,17 +111,17 @@ HTML inside method body
       (block
         (element
           (start_tag
-            (element_name))
+            (tag_name))
           (text)
           (element
             (start_tag
-              (element_name))
+              (tag_name))
             (razor_implicit_expression
               (identifier))
             (end_tag
-              (element_name)))
+              (tag_name)))
           (end_tag
-            (element_name)))))
+            (tag_name)))))
     (expression_statement
       (invocation_expression
         (identifier)
@@ -234,17 +234,17 @@ Preprocessor text in HTML is not a directive
 (compilation_unit
   (element
     (start_tag
-      (element_name))
+      (tag_name))
     (text)
     (element
       (start_tag
-        (element_name))
+        (tag_name))
       (text)
       (end_tag
-        (element_name)))
+        (tag_name)))
     (text)
     (end_tag
-      (element_name))))
+      (tag_name))))
 
 ================================================================================
 Whitespace in C# code is allowed (extras)

@@ -16,11 +16,11 @@ Razor comment in element
 (compilation_unit
   (element
     (start_tag
-      (element_name))
+      (tag_name))
     (razor_comment)
     (text)
     (end_tag
-      (element_name))))
+      (tag_name))))
 
 ================================================================================
 HTML comment
@@ -40,11 +40,11 @@ HTML comment in element
 (compilation_unit
   (element
     (start_tag
-      (element_name))
+      (tag_name))
     (html_comment)
     (text)
     (end_tag
-      (element_name))))
+      (tag_name))))
 
 ================================================================================
 C# comments in code block

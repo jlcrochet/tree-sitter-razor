@@ -7,12 +7,12 @@ Escaped at sign
 (compilation_unit
   (element
     (start_tag
-      (element_name))
+      (tag_name))
     (text)
     (escaped_at)
     (text)
     (end_tag
-      (element_name))))
+      (tag_name))))
 
 ================================================================================
 Email address as literal text
@@ -23,14 +23,14 @@ Email address as literal text
 (compilation_unit
   (element
     (start_tag
-      (element_name)
+      (tag_name)
       (html_attribute
         (html_attribute_name)
         (html_attribute_value
           (html_quoted_attribute_value))))
     (text)
     (end_tag
-      (element_name))))
+      (tag_name))))
 
 ================================================================================
 Email address inside Razor block
@@ -47,10 +47,10 @@ Email address inside Razor block
       (razor_block
         (element
           (start_tag
-            (element_name))
+            (tag_name))
           (text)
           (end_tag
-            (element_name)))))))
+            (tag_name)))))))
 
 ================================================================================
 Razor implicit expression - simple identifier
@@ -61,11 +61,11 @@ Razor implicit expression - simple identifier
 (compilation_unit
   (element
     (start_tag
-      (element_name))
+      (tag_name))
     (razor_implicit_expression
       (identifier))
     (end_tag
-      (element_name))))
+      (tag_name))))
 
 ================================================================================
 Razor implicit expression - member access
@@ -76,13 +76,13 @@ Razor implicit expression - member access
 (compilation_unit
   (element
     (start_tag
-      (element_name))
+      (tag_name))
     (razor_implicit_expression
       (member_access_expression
         (identifier)
         (identifier)))
     (end_tag
-      (element_name))))
+      (tag_name))))
 
 ================================================================================
 Razor implicit expression - method call
@@ -93,7 +93,7 @@ Razor implicit expression - method call
 (compilation_unit
   (element
     (start_tag
-      (element_name))
+      (tag_name))
     (razor_implicit_expression
       (invocation_expression
         (member_access_expression
@@ -103,7 +103,7 @@ Razor implicit expression - method call
           (identifier))
         (argument_list)))
     (end_tag
-      (element_name))))
+      (tag_name))))
 
 ================================================================================
 Razor explicit expression
@@ -114,14 +114,14 @@ Razor explicit expression
 (compilation_unit
   (element
     (start_tag
-      (element_name))
+      (tag_name))
     (razor_explicit_expression
       (binary_expression
         (identifier)
         (string_literal
           (string_literal_content))))
     (end_tag
-      (element_name))))
+      (tag_name))))
 
 ================================================================================
 Razor explicit expression with method chain
@@ -132,7 +132,7 @@ Razor explicit expression with method chain
 (compilation_unit
   (element
     (start_tag
-      (element_name))
+      (tag_name))
     (razor_explicit_expression
       (invocation_expression
         (member_access_expression
@@ -150,7 +150,7 @@ Razor explicit expression with method chain
           (identifier))
         (argument_list)))
     (end_tag
-      (element_name))))
+      (tag_name))))
 
 ================================================================================
 Razor implicit expression with indexer
@@ -161,13 +161,13 @@ Razor implicit expression with indexer
 (compilation_unit
   (element
     (start_tag
-      (element_name))
+      (tag_name))
     (razor_implicit_expression
       (element_access_expression
         (identifier)
         (integer_literal)))
     (end_tag
-      (element_name))))
+      (tag_name))))
 
 ================================================================================
 Razor implicit expression with null-conditional
@@ -178,13 +178,13 @@ Razor implicit expression with null-conditional
 (compilation_unit
   (element
     (start_tag
-      (element_name))
+      (tag_name))
     (razor_implicit_expression
       (conditional_access_expression
         (identifier)
         (identifier)))
     (end_tag
-      (element_name))))
+      (tag_name))))
 
 ================================================================================
 Generic method requires explicit expression
@@ -195,7 +195,7 @@ Generic method requires explicit expression
 (compilation_unit
   (element
     (start_tag
-      (element_name))
+      (tag_name))
     (razor_explicit_expression
       (invocation_expression
         (generic_name
@@ -204,7 +204,7 @@ Generic method requires explicit expression
             (predefined_type)))
         (argument_list)))
     (end_tag
-      (element_name))))
+      (tag_name))))
 
 ================================================================================
 Ternary in explicit expression
@@ -215,7 +215,7 @@ Ternary in explicit expression
 (compilation_unit
   (element
     (start_tag
-      (element_name))
+      (tag_name))
     (razor_explicit_expression
       (conditional_expression
         (identifier)
@@ -224,7 +224,7 @@ Ternary in explicit expression
         (string_literal
           (string_literal_content))))
     (end_tag
-      (element_name))))
+      (tag_name))))
 
 ================================================================================
 Razor implicit expression - true literal
@@ -235,11 +235,11 @@ Razor implicit expression - true literal
 (compilation_unit
   (element
     (start_tag
-      (element_name))
+      (tag_name))
     (razor_implicit_expression
       (boolean_literal))
     (end_tag
-      (element_name))))
+      (tag_name))))
 
 ================================================================================
 Razor implicit expression - false literal
@@ -250,11 +250,11 @@ Razor implicit expression - false literal
 (compilation_unit
   (element
     (start_tag
-      (element_name))
+      (tag_name))
     (razor_implicit_expression
       (boolean_literal))
     (end_tag
-      (element_name))))
+      (tag_name))))
 
 ================================================================================
 Razor implicit expression - null literal
@@ -265,11 +265,11 @@ Razor implicit expression - null literal
 (compilation_unit
   (element
     (start_tag
-      (element_name))
+      (tag_name))
     (razor_implicit_expression
       (null_literal))
     (end_tag
-      (element_name))))
+      (tag_name))))
 
 ================================================================================
 Implicit expression with space before dot terminates expression

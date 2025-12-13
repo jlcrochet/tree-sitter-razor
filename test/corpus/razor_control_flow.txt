@@ -14,10 +14,10 @@ If statement
       consequence: (razor_block
         (element
           (start_tag
-            name: (element_name))
+            name: (tag_name))
           (text)
           (end_tag
-            name: (element_name)))))))
+            name: (tag_name)))))))
 
 ================================================================================
 If-else statement
@@ -39,18 +39,18 @@ else
       consequence: (razor_block
         (element
           (start_tag
-            name: (element_name))
+            name: (tag_name))
           (text)
           (end_tag
-            name: (element_name))))
+            name: (tag_name))))
       alternative: (else_clause
         (razor_block
           (element
             (start_tag
-              name: (element_name))
+              name: (tag_name))
             (text)
             (end_tag
-              name: (element_name))))))))
+              name: (tag_name))))))))
 
 ================================================================================
 If-else if-else statement
@@ -76,27 +76,27 @@ else
       consequence: (razor_block
         (element
           (start_tag
-            name: (element_name))
+            name: (tag_name))
           (text)
           (end_tag
-            name: (element_name))))
+            name: (tag_name))))
       alternative: (razor_else_if_clause
         condition: (identifier)
         consequence: (razor_block
           (element
             (start_tag
-              name: (element_name))
+              name: (tag_name))
             (text)
             (end_tag
-              name: (element_name))))
+              name: (tag_name))))
         alternative: (else_clause
           (razor_block
             (element
               (start_tag
-                name: (element_name))
+                name: (tag_name))
               (text)
               (end_tag
-                name: (element_name)))))))))
+                name: (tag_name)))))))))
 
 ================================================================================
 Foreach loop
@@ -116,11 +116,11 @@ Foreach loop
       (razor_block
         (element
           (start_tag
-            (element_name))
+            (tag_name))
           (razor_implicit_expression
             (identifier))
           (end_tag
-            (element_name)))))))
+            (tag_name)))))))
 
 ================================================================================
 For loop
@@ -147,11 +147,11 @@ For loop
       (razor_block
         (element
           (start_tag
-            (element_name))
+            (tag_name))
           (razor_implicit_expression
             (identifier))
           (end_tag
-            (element_name)))))))
+            (tag_name)))))))
 
 ================================================================================
 While loop
@@ -169,10 +169,10 @@ While loop
       (razor_block
         (element
           (start_tag
-            (element_name))
+            (tag_name))
           (text)
           (end_tag
-            (element_name)))))))
+            (tag_name)))))))
 
 ================================================================================
 Do-while loop
@@ -190,10 +190,10 @@ while (hasMore);
       (razor_block
         (element
           (start_tag
-            (element_name))
+            (tag_name))
           (text)
           (end_tag
-            (element_name))))
+            (tag_name))))
       (identifier))))
 
 ================================================================================
@@ -215,18 +215,18 @@ catch
       (razor_block
         (element
           (start_tag
-            (element_name))
+            (tag_name))
           (text)
           (end_tag
-            (element_name))))
+            (tag_name))))
       (catch_clause
         (razor_block
           (element
             (start_tag
-              (element_name))
+              (tag_name))
             (text)
             (end_tag
-              (element_name))))))))
+              (tag_name))))))))
 
 ================================================================================
 Try-catch-finally statement
@@ -251,10 +251,10 @@ finally
       (razor_block
         (element
           (start_tag
-            (element_name))
+            (tag_name))
           (text)
           (end_tag
-            (element_name))))
+            (tag_name))))
       (catch_clause
         (catch_declaration
           (identifier)
@@ -262,18 +262,18 @@ finally
         (razor_block
           (element
             (start_tag
-              (element_name))
+              (tag_name))
             (text)
             (end_tag
-              (element_name)))))
+              (tag_name)))))
       (finally_clause
         (razor_block
           (element
             (start_tag
-              (element_name))
+              (tag_name))
             (text)
             (end_tag
-              (element_name))))))))
+              (tag_name))))))))
 
 ================================================================================
 Using statement (disposable)
@@ -295,10 +295,10 @@ Using statement (disposable)
       (razor_block
         (element
           (start_tag
-            (element_name))
+            (tag_name))
           (text)
           (end_tag
-            (element_name)))))))
+            (tag_name)))))))
 
 ================================================================================
 Lock statement
@@ -316,10 +316,10 @@ Lock statement
       (razor_block
         (element
           (start_tag
-            (element_name))
+            (tag_name))
           (text)
           (end_tag
-            (element_name)))))))
+            (tag_name)))))))
 
 ================================================================================
 Nested if statement in Razor block
@@ -347,10 +347,10 @@ Nested if statement in Razor block
             (razor_block
               (element
                 (start_tag
-                  (element_name))
+                  (tag_name))
                 (text)
                 (end_tag
-                  (element_name))))))))))
+                  (tag_name))))))))))
 
 ================================================================================
 Nested foreach in if statement
@@ -377,11 +377,11 @@ Nested foreach in if statement
             (razor_block
               (element
                 (start_tag
-                  (element_name))
+                  (tag_name))
                 (razor_implicit_expression
                   (identifier))
                 (end_tag
-                  (element_name))))))))))
+                  (tag_name))))))))))
 
 ================================================================================
 Switch statement
@@ -411,10 +411,10 @@ Switch statement
               (string_literal_content)))
           (element
             (start_tag
-              (element_name))
+              (tag_name))
             (text)
             (end_tag
-              (element_name)))
+              (tag_name)))
           (break_statement))
         (razor_switch_section
           (constant_pattern
@@ -422,16 +422,16 @@ Switch statement
               (string_literal_content)))
           (element
             (start_tag
-              (element_name))
+              (tag_name))
             (text)
             (end_tag
-              (element_name)))
+              (tag_name)))
           (break_statement))
         (razor_switch_section
           (element
             (start_tag
-              (element_name))
+              (tag_name))
             (text)
             (end_tag
-              (element_name)))
+              (tag_name)))
           (break_statement))))))
