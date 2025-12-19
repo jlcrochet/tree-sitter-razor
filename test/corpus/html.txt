@@ -40,10 +40,10 @@ Tag Helper opt-out element
 (compilation_unit
   (element
     (start_tag
-      name: (tag_name))
+      (tag_name))
     (text)
     (end_tag
-      name: (tag_name))))
+      (tag_name))))
 
 ================================================================================
 Nested elements

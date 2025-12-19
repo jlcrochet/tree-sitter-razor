@@ -21,33 +21,6 @@ module.exports = grammar(csharp, {
     $.razor_directive,
   ]),
 
-  extras: ($, original) => {
-    // Filter out the old preproc rules and comment - we override them with context-aware versions
-    const filtered = [
-      'preproc_region', 'preproc_endregion', 'preproc_line', 'preproc_pragma',
-      'preproc_nullable', 'preproc_error', 'preproc_warning', 'preproc_define', 'preproc_undef',
-      'comment'
-    ];
-    return original.filter(rule => {
-      // Keep rules that aren't the filtered rules
-      if (filtered.some(name => rule.name === name)) return false;
-      // Keep whitespace in extras - it's required for C# parsing
-      return true;
-    }).concat([
-      // Add context-aware versions
-      $.comment,
-      $.preproc_region,
-      $.preproc_endregion,
-      $.preproc_line,
-      $.preproc_pragma,
-      $.preproc_nullable,
-      $.preproc_error,
-      $.preproc_warning,
-      $.preproc_define,
-      $.preproc_undef,
-    ]);
-  },
-
   externals: ($, original) => original.concat([
     // Text containing literal @ (email addresses, etc.)
     $._text_with_literal_at,   // word+@ pattern like "user@example.com"
@@ -439,7 +412,7 @@ module.exports = grammar(csharp, {
     void_element: $ => seq(
       '<',
       optional($._tag_helper_opt_out),
-      field('name', alias($._void_tag_name, $.tag_name)),
+      alias($._void_tag_name, $.tag_name),
       repeat($._html_attribute),
       optional('/'),
       token.immediate('>'),
@@ -486,7 +459,7 @@ module.exports = grammar(csharp, {
     self_closing_element: $ => seq(
       '<',
       optional($._tag_helper_opt_out),
-      field('name', alias($._immediate_tag_name, $.tag_name)),
+      alias($._immediate_tag_name, $.tag_name),
       repeat($._html_attribute),
       '/',
       token.immediate('>'),
@@ -495,7 +468,7 @@ module.exports = grammar(csharp, {
     start_tag: $ => seq(
       '<',
       optional($._tag_helper_opt_out),
-      field('name', alias($._immediate_tag_name, $.tag_name)),
+      alias($._immediate_tag_name, $.tag_name),
       repeat($._html_attribute),
       '>',
     ),
@@ -503,7 +476,7 @@ module.exports = grammar(csharp, {
     end_tag: $ => seq(
       '</',
       optional($._tag_helper_opt_out),
-      field('name', alias($._immediate_tag_name, $.tag_name)),
+      alias($._immediate_tag_name, $.tag_name),
       '>',
     ),
 
@@ -513,8 +486,6 @@ module.exports = grammar(csharp, {
     // Element name that must immediately follow < or </ (or ! if opt-out)
     // Includes . for Blazor fully-qualified component names like NTExtractor.Components.Admin.Extractor
     _immediate_tag_name: _ => token.immediate(/[a-zA-Z][a-zA-Z0-9.:-]*/),
-
-    tag_name: _ => /[a-zA-Z][a-zA-Z0-9.:-]*/,
 
     // =========================================================================
     // Script and Style Elements

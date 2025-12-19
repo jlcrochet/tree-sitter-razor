@@ -13339,17 +13339,13 @@
           ]
         },
         {
-          "type": "FIELD",
-          "name": "name",
+          "type": "ALIAS",
           "content": {
-            "type": "ALIAS",
-            "content": {
-              "type": "SYMBOL",
-              "name": "_void_tag_name"
-            },
-            "named": true,
-            "value": "tag_name"
-          }
+            "type": "SYMBOL",
+            "name": "_void_tag_name"
+          },
+          "named": true,
+          "value": "tag_name"
         },
         {
           "type": "REPEAT",
@@ -13565,17 +13561,13 @@
           ]
         },
         {
-          "type": "FIELD",
-          "name": "name",
+          "type": "ALIAS",
           "content": {
-            "type": "ALIAS",
-            "content": {
-              "type": "SYMBOL",
-              "name": "_immediate_tag_name"
-            },
-            "named": true,
-            "value": "tag_name"
-          }
+            "type": "SYMBOL",
+            "name": "_immediate_tag_name"
+          },
+          "named": true,
+          "value": "tag_name"
         },
         {
           "type": "REPEAT",
@@ -13617,17 +13609,13 @@
           ]
         },
         {
-          "type": "FIELD",
-          "name": "name",
+          "type": "ALIAS",
           "content": {
-            "type": "ALIAS",
-            "content": {
-              "type": "SYMBOL",
-              "name": "_immediate_tag_name"
-            },
-            "named": true,
-            "value": "tag_name"
-          }
+            "type": "SYMBOL",
+            "name": "_immediate_tag_name"
+          },
+          "named": true,
+          "value": "tag_name"
         },
         {
           "type": "REPEAT",
@@ -13662,17 +13650,13 @@
           ]
         },
         {
-          "type": "FIELD",
-          "name": "name",
+          "type": "ALIAS",
           "content": {
-            "type": "ALIAS",
-            "content": {
-              "type": "SYMBOL",
-              "name": "_immediate_tag_name"
-            },
-            "named": true,
-            "value": "tag_name"
-          }
+            "type": "SYMBOL",
+            "name": "_immediate_tag_name"
+          },
+          "named": true,
+          "value": "tag_name"
         },
         {
           "type": "STRING",
@@ -13693,10 +13677,6 @@
         "type": "PATTERN",
         "value": "[a-zA-Z][a-zA-Z0-9.:-]*"
       }
-    },
-    "tag_name": {
-      "type": "PATTERN",
-      "value": "[a-zA-Z][a-zA-Z0-9.:-]*"
     },
     "_script_element": {
       "type": "PREC",

@@ -14,10 +14,10 @@ If statement
       consequence: (razor_block
         (element
           (start_tag
-            name: (tag_name))
+            (tag_name))
           (text)
           (end_tag
-            name: (tag_name)))))))
+            (tag_name)))))))
 
 ================================================================================
 If-else statement
@@ -39,18 +39,18 @@ else
       consequence: (razor_block
         (element
           (start_tag
-            name: (tag_name))
+            (tag_name))
           (text)
           (end_tag
-            name: (tag_name))))
+            (tag_name))))
       alternative: (else_clause
         (razor_block
           (element
             (start_tag
-              name: (tag_name))
+              (tag_name))
             (text)
             (end_tag
-              name: (tag_name))))))))
+              (tag_name))))))))
 
 ================================================================================
 If-else if-else statement
@@ -76,27 +76,27 @@ else
       consequence: (razor_block
         (element
           (start_tag
-            name: (tag_name))
+            (tag_name))
           (text)
           (end_tag
-            name: (tag_name))))
+            (tag_name))))
       alternative: (razor_else_if_clause
         condition: (identifier)
         consequence: (razor_block
           (element
             (start_tag
-              name: (tag_name))
+              (tag_name))
             (text)
             (end_tag
-              name: (tag_name))))
+              (tag_name))))
         alternative: (else_clause
           (razor_block
             (element
               (start_tag
-                name: (tag_name))
+                (tag_name))
               (text)
               (end_tag
-                name: (tag_name)))))))))
+                (tag_name)))))))))
 
 ================================================================================
 Foreach loop
