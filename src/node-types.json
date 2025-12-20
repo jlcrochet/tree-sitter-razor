@@ -1495,6 +1495,10 @@
           "named": true
         },
         {
+          "type": "razor_comment",
+          "named": true
+        },
+        {
           "type": "razor_text_literal",
           "named": true
         },
@@ -5770,6 +5774,10 @@
           "named": true
         },
         {
+          "type": "razor_comment",
+          "named": true
+        },
+        {
           "type": "razor_statement",
           "named": true
         },
@@ -5861,6 +5869,10 @@
           "named": true
         },
         {
+          "type": "razor_comment",
+          "named": true
+        },
+        {
           "type": "razor_statement",
           "named": true
         },
@@ -5897,6 +5909,11 @@
         }
       ]
     }
+  },
+  {
+    "type": "razor_comment",
+    "named": true,
+    "fields": {}
   },
   {
     "type": "razor_else_if_clause",
@@ -6418,6 +6435,10 @@
         },
         {
           "type": "pattern",
+          "named": true
+        },
+        {
+          "type": "razor_comment",
           "named": true
         },
         {
@@ -8042,6 +8063,10 @@
     "named": false
   },
   {
+    "type": "@*",
+    "named": false
+  },
+  {
     "type": "@:",
     "named": false
   },
@@ -8515,10 +8540,6 @@
   },
   {
     "type": "raw_text",
-    "named": true
-  },
-  {
-    "type": "razor_comment",
     "named": true
   },
   {

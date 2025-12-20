@@ -44,6 +44,8 @@ module.exports = grammar(csharp, {
     $._razor_block_at,              // @ in Razor block - starts nested Razor expression
     // Using directive: zero-width token that matches when NOT followed by = or .
     $._using_not_alias,
+    // Razor comment start in C# context - matches @* to beat C# @ handling
+    $._razor_comment_start,
   ]),
 
   rules: {
@@ -124,6 +126,7 @@ module.exports = grammar(csharp, {
       $.self_closing_element,
       $.void_element,
       $.razor_text_literal,
+      alias($._razor_block_comment, $.razor_comment),
       $._nested_razor_explicit_expression,
       $._nested_razor_implicit_expression,
     ),
@@ -321,7 +324,11 @@ module.exports = grammar(csharp, {
       field('body', alias($.razor_switch_body, $.switch_body)),
     ),
 
-    razor_switch_body: $ => seq('{', repeat($.razor_switch_section), '}'),
+    razor_switch_body: $ => seq(
+      alias($._razor_block_open, '{'),
+      repeat($.razor_switch_section),
+      alias($._csharp_context_close, '}'),
+    ),
 
     razor_switch_section: $ => prec.left(seq(
       choice(
@@ -347,6 +354,7 @@ module.exports = grammar(csharp, {
       $.self_closing_element,
       $.void_element,
       $.razor_text_literal,
+      alias($._razor_block_comment, $.razor_comment),
       $._nested_razor_explicit_expression,
       $._nested_razor_implicit_expression,
     ),
@@ -672,6 +680,15 @@ module.exports = grammar(csharp, {
       /([^*]|\*[^@])*/,
       '*@',
     )),
+
+    // Razor comment inside C# blocks - uses external scanner for @* to beat C# @identifier
+    _razor_block_comment: $ => seq(
+      alias($._razor_comment_start, '@*'),
+      token.immediate(seq(
+        /([^*]|\*[^@])*/,
+        '*@',
+      )),
+    ),
 
     // HTML comment <!-- ... -->
     html_comment: $ => token(seq(
@@ -1043,6 +1060,7 @@ module.exports = grammar(csharp, {
         $.self_closing_element,
         $.void_element,
         $.razor_text_literal,
+        alias($._razor_block_comment, $.razor_comment),
       )),
       alias($._csharp_context_close, '}'),
     ),

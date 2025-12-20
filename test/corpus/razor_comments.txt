@@ -59,3 +59,104 @@ C# comments in code block
   (razor_code_block
     (comment)
     (comment)))
+
+================================================================================
+Razor comment in code block
+================================================================================
+@{
+    var x = 1;
+    @* This is a Razor comment inside a code block *@
+    var y = 2;
+}
+--------------------------------------------------------------------------------
+
+(compilation_unit
+  (razor_code_block
+    (local_declaration_statement
+      (variable_declaration
+        (implicit_type)
+        (variable_declarator
+          (identifier)
+          (integer_literal))))
+    (razor_comment)
+    (local_declaration_statement
+      (variable_declaration
+        (implicit_type)
+        (variable_declarator
+          (identifier)
+          (integer_literal))))))
+
+================================================================================
+Razor comment in if statement block
+================================================================================
+@if (true) {
+    @* comment in if block *@
+    <p>Content</p>
+}
+--------------------------------------------------------------------------------
+
+(compilation_unit
+  (razor_statement
+    (if_statement
+      (boolean_literal)
+      (razor_block
+        (razor_comment)
+        (element
+          (start_tag
+            (tag_name))
+          (text)
+          (end_tag
+            (tag_name)))))))
+
+================================================================================
+Razor comment in switch section
+================================================================================
+@switch (x) {
+    case 1:
+        @* comment in case *@
+        <p>One</p>
+        break;
+}
+--------------------------------------------------------------------------------
+
+(compilation_unit
+  (razor_statement
+    (switch_statement
+      (identifier)
+      (switch_body
+        (razor_switch_section
+          (constant_pattern
+            (integer_literal))
+          (razor_comment)
+          (element
+            (start_tag
+              (tag_name))
+            (text)
+            (end_tag
+              (tag_name)))
+          (break_statement))))))
+
+================================================================================
+Razor comment in foreach block
+================================================================================
+@foreach (var item in items) {
+    @* Skip this comment *@
+    <li>@item</li>
+}
+--------------------------------------------------------------------------------
+
+(compilation_unit
+  (razor_statement
+    (foreach_statement
+      (implicit_type)
+      (identifier)
+      (identifier)
+      (razor_block
+        (razor_comment)
+        (element
+          (start_tag
+            (tag_name))
+          (razor_implicit_expression
+            (identifier))
+          (end_tag
+            (tag_name)))))))

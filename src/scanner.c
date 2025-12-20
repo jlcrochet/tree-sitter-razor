@@ -47,6 +47,8 @@ enum RazorTokenType {
     RAZOR_BLOCK_AT,          // @ inside a Razor block - starts nested Razor expression
     // Using directive lookahead
     USING_NOT_ALIAS,         // Zero-width token that matches when NOT followed by = or .
+    // Razor comment start in C# context
+    RAZOR_COMMENT_START,     // @* - start of Razor comment, beats C# @identifier
 };
 
 // =============================================================================
@@ -563,9 +565,9 @@ bool tree_sitter_razor_external_scanner_scan(void *payload, TSLexer *lexer, cons
         }
     }
 
-    // @ token for nested Razor expressions/statements in C# context
+    // @ token handling in C# context - handles both @* (comment) and @ (Razor expression)
     // Must be matched before C# verbatim identifier lexing can grab @identifier
-    if (valid_symbols[RAZOR_BLOCK_AT] && in_csharp_context(scanner)) {
+    if ((valid_symbols[RAZOR_COMMENT_START] || valid_symbols[RAZOR_BLOCK_AT]) && in_csharp_context(scanner)) {
         // Skip C# whitespace first
         while (is_whitespace(lexer->lookahead)) {
             razor_skip(lexer);
@@ -574,14 +576,26 @@ bool tree_sitter_razor_external_scanner_scan(void *payload, TSLexer *lexer, cons
         if (lexer->lookahead == '@') {
             razor_advance(lexer);    // Consume @
 
-            // Check for @: (text literal) or @@ (escaped @) - don't match these
+            // @* - start of Razor comment
+            if (valid_symbols[RAZOR_COMMENT_START] && lexer->lookahead == '*') {
+                razor_advance(lexer);    // Consume *
+                lexer->result_symbol = RAZOR_COMMENT_START;
+                return true;
+            }
+
+            // Check for @: (text literal) or @@ (escaped @) - don't match these as RAZOR_BLOCK_AT
             if (lexer->lookahead == ':' || lexer->lookahead == '@') {
                 return false;
             }
 
-            // Match just the @ character
-            lexer->result_symbol = RAZOR_BLOCK_AT;
-            return true;
+            // @ for nested Razor expressions/statements
+            if (valid_symbols[RAZOR_BLOCK_AT]) {
+                lexer->result_symbol = RAZOR_BLOCK_AT;
+                return true;
+            }
+
+            // RAZOR_COMMENT_START was valid but not @* - fallback
+            return false;
         }
     }
 

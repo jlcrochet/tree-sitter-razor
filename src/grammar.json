@@ -3177,6 +3177,15 @@
               {
                 "type": "SYMBOL",
                 "name": "razor_text_literal"
+              },
+              {
+                "type": "ALIAS",
+                "content": {
+                  "type": "SYMBOL",
+                  "name": "_razor_block_comment"
+                },
+                "named": true,
+                "value": "razor_comment"
               }
             ]
           }
@@ -12029,6 +12038,15 @@
           "name": "razor_text_literal"
         },
         {
+          "type": "ALIAS",
+          "content": {
+            "type": "SYMBOL",
+            "name": "_razor_block_comment"
+          },
+          "named": true,
+          "value": "razor_comment"
+        },
+        {
           "type": "SYMBOL",
           "name": "_nested_razor_explicit_expression"
         },
@@ -12957,7 +12975,12 @@
       "type": "SEQ",
       "members": [
         {
-          "type": "STRING",
+          "type": "ALIAS",
+          "content": {
+            "type": "SYMBOL",
+            "name": "_razor_block_open"
+          },
+          "named": false,
           "value": "{"
         },
         {
@@ -12968,7 +12991,12 @@
           }
         },
         {
-          "type": "STRING",
+          "type": "ALIAS",
+          "content": {
+            "type": "SYMBOL",
+            "name": "_csharp_context_close"
+          },
+          "named": false,
           "value": "}"
         }
       ]
@@ -13076,6 +13104,15 @@
         {
           "type": "SYMBOL",
           "name": "razor_text_literal"
+        },
+        {
+          "type": "ALIAS",
+          "content": {
+            "type": "SYMBOL",
+            "name": "_razor_block_comment"
+          },
+          "named": true,
+          "value": "razor_comment"
         },
         {
           "type": "SYMBOL",
@@ -14385,6 +14422,36 @@
           }
         ]
       }
+    },
+    "_razor_block_comment": {
+      "type": "SEQ",
+      "members": [
+        {
+          "type": "ALIAS",
+          "content": {
+            "type": "SYMBOL",
+            "name": "_razor_comment_start"
+          },
+          "named": false,
+          "value": "@*"
+        },
+        {
+          "type": "IMMEDIATE_TOKEN",
+          "content": {
+            "type": "SEQ",
+            "members": [
+              {
+                "type": "PATTERN",
+                "value": "([^*]|\\*[^@])*"
+              },
+              {
+                "type": "STRING",
+                "value": "*@"
+              }
+            ]
+          }
+        }
+      ]
     },
     "html_comment": {
       "type": "TOKEN",
@@ -15833,6 +15900,10 @@
     {
       "type": "SYMBOL",
       "name": "_using_not_alias"
+    },
+    {
+      "type": "SYMBOL",
+      "name": "_razor_comment_start"
     }
   ],
   "inline": [
