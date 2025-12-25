@@ -1,20 +1,7 @@
-/**
- * Razor external scanner
- *
- * This scanner wraps the C# scanner and adds Razor-specific token handling.
- * The C# scanner is treated as a black box - we include it and delegate to it
- * for C# tokens.
- */
-
 #include "tree_sitter/alloc.h"
 #include "tree_sitter/array.h"
 #include "tree_sitter/parser.h"
 #include <stdint.h>
-
-// =============================================================================
-// Include C# scanner
-// =============================================================================
-
 #include "../tree-sitter-c-sharp/src/scanner.c"
 
 // =============================================================================
@@ -86,56 +73,184 @@ static inline bool in_csharp_context(RazorScanner *scanner) {
 static inline bool is_unicode_letter(int32_t c) {
     // ASCII letters
     if ((c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z')) return true;
-
     // Latin-1 Supplement letters (U+00C0-U+00FF, excluding some non-letters)
     if (c >= 0x00C0 && c <= 0x00FF && c != 0x00D7 && c != 0x00F7) return true;
-
-    // Latin Extended-A (U+0100-U+017F)
+    // Latin Extended-A
     if (c >= 0x0100 && c <= 0x017F) return true;
-
-    // Latin Extended-B (U+0180-U+024F)
+    // Latin Extended-B
     if (c >= 0x0180 && c <= 0x024F) return true;
-
-    // Greek and Coptic (U+0370-U+03FF)
+    // Greek and Coptic
     if (c >= 0x0370 && c <= 0x03FF) return true;
-
-    // Cyrillic (U+0400-U+04FF)
+    // Cyrillic
     if (c >= 0x0400 && c <= 0x04FF) return true;
-
-    // Hebrew (U+0590-U+05FF)
+    // Hebrew
     if (c >= 0x0590 && c <= 0x05FF) return true;
-
-    // Arabic (U+0600-U+06FF)
+    // Arabic
     if (c >= 0x0600 && c <= 0x06FF) return true;
-
-    // Devanagari (U+0900-U+097F)
+    // Devanagari
     if (c >= 0x0900 && c <= 0x097F) return true;
-
-    // Thai (U+0E00-U+0E7F)
+    // Thai
     if (c >= 0x0E00 && c <= 0x0E7F) return true;
-
-    // CJK Unified Ideographs (U+4E00-U+9FFF)
+    // CJK Unified Ideographs
     if (c >= 0x4E00 && c <= 0x9FFF) return true;
-
-    // Hiragana (U+3040-U+309F)
+    // Hiragana
     if (c >= 0x3040 && c <= 0x309F) return true;
-
-    // Katakana (U+30A0-U+30FF)
+    // Katakana
     if (c >= 0x30A0 && c <= 0x30FF) return true;
-
-    // Hangul Syllables (U+AC00-U+D7AF)
+    // Hangul Syllables
     if (c >= 0xAC00 && c <= 0xD7AF) return true;
 
     return false;
 }
 
-// Check if character is a Unicode decimal digit (0-9 in various scripts)
+// Check if character is a Unicode decimal digit (category Nd - DecimalDigitNumber)
+// This matches .NET's char.IsDigit() behavior
 static inline bool is_unicode_digit(int32_t c) {
-    // ASCII digits
-    if (c >= '0' && c <= '9') return true;
+    // Fast path: ASCII digits - covers 99%+ of real-world cases
+    if (c >= 0x0030 && c <= 0x0039) return true;
+    // Quick rejection for common non-digit characters
+    if (c < 0x0660) return false;
 
-    // Other common digit ranges (Arabic-Indic, Extended Arabic-Indic, Devanagari, etc.)
-    // For simplicity, we mainly care about ASCII digits for email detection
+    // === Basic Multilingual Plane (BMP) digits ===
+
+    // Arabic-Indic
+    if (c >= 0x0660 && c <= 0x0669) return true;
+    // Extended Arabic-Indic
+    if (c >= 0x06F0 && c <= 0x06F9) return true;
+    // NKo
+    if (c >= 0x07C0 && c <= 0x07C9) return true;
+    // Devanagari
+    if (c >= 0x0966 && c <= 0x096F) return true;
+    // Bengali
+    if (c >= 0x09E6 && c <= 0x09EF) return true;
+    // Gurmukhi
+    if (c >= 0x0A66 && c <= 0x0A6F) return true;
+    // Gujarati
+    if (c >= 0x0AE6 && c <= 0x0AEF) return true;
+    // Oriya
+    if (c >= 0x0B66 && c <= 0x0B6F) return true;
+    // Tamil
+    if (c >= 0x0BE6 && c <= 0x0BEF) return true;
+    // Telugu
+    if (c >= 0x0C66 && c <= 0x0C6F) return true;
+    // Kannada
+    if (c >= 0x0CE6 && c <= 0x0CEF) return true;
+    // Malayalam
+    if (c >= 0x0D66 && c <= 0x0D6F) return true;
+    // Sinhala
+    if (c >= 0x0DE6 && c <= 0x0DEF) return true;
+    // Thai
+    if (c >= 0x0E50 && c <= 0x0E59) return true;
+    // Lao
+    if (c >= 0x0ED0 && c <= 0x0ED9) return true;
+    // Tibetan
+    if (c >= 0x0F20 && c <= 0x0F29) return true;
+    // Myanmar
+    if (c >= 0x1040 && c <= 0x1049) return true;
+    // Myanmar Shan
+    if (c >= 0x1090 && c <= 0x1099) return true;
+    // Khmer
+    if (c >= 0x17E0 && c <= 0x17E9) return true;
+    // Mongolian
+    if (c >= 0x1810 && c <= 0x1819) return true;
+    // Limbu
+    if (c >= 0x1946 && c <= 0x194F) return true;
+    // New Tai Lue
+    if (c >= 0x19D0 && c <= 0x19D9) return true;
+    // Tai Tham Hora
+    if (c >= 0x1A80 && c <= 0x1A89) return true;
+    // Tai Tham Tham
+    if (c >= 0x1A90 && c <= 0x1A99) return true;
+    // Balinese
+    if (c >= 0x1B50 && c <= 0x1B59) return true;
+    // Sundanese
+    if (c >= 0x1BB0 && c <= 0x1BB9) return true;
+    // Lepcha
+    if (c >= 0x1C40 && c <= 0x1C49) return true;
+    // Ol Chiki
+    if (c >= 0x1C50 && c <= 0x1C59) return true;
+    // Vai
+    if (c >= 0xA620 && c <= 0xA629) return true;
+    // Saurashtra
+    if (c >= 0xA8D0 && c <= 0xA8D9) return true;
+    // Kayah Li
+    if (c >= 0xA900 && c <= 0xA909) return true;
+    // Javanese
+    if (c >= 0xA9D0 && c <= 0xA9D9) return true;
+    // Myanmar Tai Laing
+    if (c >= 0xA9F0 && c <= 0xA9F9) return true;
+    // Cham
+    if (c >= 0xAA50 && c <= 0xAA59) return true;
+    // Meetei Mayek
+    if (c >= 0xABF0 && c <= 0xABF9) return true;
+    // Fullwidth digits
+    if (c >= 0xFF10 && c <= 0xFF19) return true;
+
+    // === Supplementary Multilingual Plane (SMP) digits ===
+
+    // Osmanya
+    if (c >= 0x104A0 && c <= 0x104A9) return true;
+    // Hanifi Rohingya
+    if (c >= 0x10D30 && c <= 0x10D39) return true;
+    // Brahmi
+    if (c >= 0x11066 && c <= 0x1106F) return true;
+    // Sora Sompeng
+    if (c >= 0x110F0 && c <= 0x110F9) return true;
+    // Chakma
+    if (c >= 0x11136 && c <= 0x1113F) return true;
+    // Sharada
+    if (c >= 0x111D0 && c <= 0x111D9) return true;
+    // Khudawadi
+    if (c >= 0x112F0 && c <= 0x112F9) return true;
+    // Newa
+    if (c >= 0x11450 && c <= 0x11459) return true;
+    // Tirhuta
+    if (c >= 0x114D0 && c <= 0x114D9) return true;
+    // Modi
+    if (c >= 0x11650 && c <= 0x11659) return true;
+    // Takri
+    if (c >= 0x116C0 && c <= 0x116C9) return true;
+    // Ahom
+    if (c >= 0x11730 && c <= 0x11739) return true;
+    // Warang Citi
+    if (c >= 0x118E0 && c <= 0x118E9) return true;
+    // Dives Akuru
+    if (c >= 0x11950 && c <= 0x11959) return true;
+    // Bhaiksuki
+    if (c >= 0x11C50 && c <= 0x11C59) return true;
+    // Masaram Gondi
+    if (c >= 0x11D50 && c <= 0x11D59) return true;
+    // Gunjala Gondi
+    if (c >= 0x11DA0 && c <= 0x11DA9) return true;
+    // Kawi
+    if (c >= 0x11F50 && c <= 0x11F59) return true;
+    // Mro
+    if (c >= 0x16A60 && c <= 0x16A69) return true;
+    // Tangsa
+    if (c >= 0x16AC0 && c <= 0x16AC9) return true;
+    // Pahawh Hmong
+    if (c >= 0x16B50 && c <= 0x16B59) return true;
+    // Mathematical Bold
+    if (c >= 0x1D7CE && c <= 0x1D7D7) return true;
+    // Mathematical Double-Struck
+    if (c >= 0x1D7D8 && c <= 0x1D7E1) return true;
+    // Mathematical Sans-Serif
+    if (c >= 0x1D7E2 && c <= 0x1D7EB) return true;
+    // Mathematical Sans-Serif Bold
+    if (c >= 0x1D7EC && c <= 0x1D7F5) return true;
+    // Mathematical Monospace
+    if (c >= 0x1D7F6 && c <= 0x1D7FF) return true;
+    // Nyiakeng Puachue Hmong
+    if (c >= 0x1E140 && c <= 0x1E149) return true;
+    // Wancho
+    if (c >= 0x1E2F0 && c <= 0x1E2F9) return true;
+    // Nag Mundari
+    if (c >= 0x1E4F0 && c <= 0x1E4F9) return true;
+    // Adlam
+    if (c >= 0x1E950 && c <= 0x1E959) return true;
+    // Segmented digits
+    if (c >= 0x1FBF0 && c <= 0x1FBF9) return true;
+
     return false;
 }
 
