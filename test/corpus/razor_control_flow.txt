@@ -123,6 +123,30 @@ Foreach loop
             (tag_name)))))))
 
 ================================================================================
+Await foreach loop (async enumeration)
+================================================================================
+@await foreach (var item in asyncStream)
+{
+    <li>@item</li>
+}
+--------------------------------------------------------------------------------
+
+(compilation_unit
+  (razor_statement
+    (foreach_statement
+      (implicit_type)
+      (identifier)
+      (identifier)
+      (razor_block
+        (element
+          (start_tag
+            (tag_name))
+          (razor_implicit_expression
+            (identifier))
+          (end_tag
+            (tag_name)))))))
+
+================================================================================
 For loop
 ================================================================================
 @for (int i = 0; i < 10; i++)
@@ -435,3 +459,118 @@ Switch statement
             (end_tag
               (tag_name)))
           (break_statement))))))
+
+================================================================================
+Razor comment between if and else clauses
+================================================================================
+@if (condition)
+{
+    <p>True</p>
+}
+@* comment between clauses *@
+else
+{
+    <p>False</p>
+}
+--------------------------------------------------------------------------------
+
+(compilation_unit
+  (razor_statement
+    (if_statement
+      condition: (identifier)
+      consequence: (razor_block
+        (element
+          (start_tag
+            (tag_name))
+          (text)
+          (end_tag
+            (tag_name))))
+      alternative: (else_clause
+        (razor_comment)
+        (razor_block
+          (element
+            (start_tag
+              (tag_name))
+            (text)
+            (end_tag
+              (tag_name))))))))
+
+================================================================================
+Razor comment between try and catch clauses
+================================================================================
+@try
+{
+    <p>Try</p>
+}
+@* handle errors *@
+catch
+{
+    <p>Error</p>
+}
+--------------------------------------------------------------------------------
+
+(compilation_unit
+  (razor_statement
+    (try_statement
+      (razor_block
+        (element
+          (start_tag
+            (tag_name))
+          (text)
+          (end_tag
+            (tag_name))))
+      (catch_clause
+        (razor_comment)
+        (razor_block
+          (element
+            (start_tag
+              (tag_name))
+            (text)
+            (end_tag
+              (tag_name))))))))
+
+================================================================================
+Razor comment between catch and finally clauses
+================================================================================
+@try
+{
+    <p>Try</p>
+}
+catch
+{
+    <p>Error</p>
+}
+@* cleanup comment *@
+finally
+{
+    <p>Done</p>
+}
+--------------------------------------------------------------------------------
+
+(compilation_unit
+  (razor_statement
+    (try_statement
+      (razor_block
+        (element
+          (start_tag
+            (tag_name))
+          (text)
+          (end_tag
+            (tag_name))))
+      (catch_clause
+        (razor_block
+          (element
+            (start_tag
+              (tag_name))
+            (text)
+            (end_tag
+              (tag_name)))))
+      (finally_clause
+        (razor_comment)
+        (razor_block
+          (element
+            (start_tag
+              (tag_name))
+            (text)
+            (end_tag
+              (tag_name))))))))

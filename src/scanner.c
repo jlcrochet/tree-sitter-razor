@@ -371,6 +371,40 @@ bool tree_sitter_razor_external_scanner_scan(void *payload, TSLexer *lexer, cons
     RazorScanner *scanner = (RazorScanner *)payload;
 
     // -------------------------------------------------------------------------
+    // @{ or @( - enter C# context
+    // This must be checked EARLY because the literal '@' token in the grammar
+    // can match first if we don't catch @{ and @( here.
+    // IMPORTANT: We must skip whitespace because tree-sitter only calls the
+    // external scanner ONCE at each position. If we don't skip whitespace,
+    // the main lexer will skip it and match '@' before we get a chance.
+    // -------------------------------------------------------------------------
+    if (valid_symbols[CSHARP_CODE_BLOCK_START] || valid_symbols[CSHARP_EXPLICIT_EXPR_START]) {
+        // Skip whitespace to find the @ token
+        while (is_whitespace(lexer->lookahead)) {
+            razor_skip(lexer);
+        }
+        if (lexer->lookahead == '@') {
+            razor_advance(lexer);  // consume @
+            if (valid_symbols[CSHARP_CODE_BLOCK_START] && lexer->lookahead == '{') {
+                razor_advance(lexer);
+                array_push(&scanner->context_stack, CONTEXT_CSHARP_BRACE);
+                lexer->result_symbol = CSHARP_CODE_BLOCK_START;
+                return true;
+            }
+            if (valid_symbols[CSHARP_EXPLICIT_EXPR_START] && lexer->lookahead == '(') {
+                razor_advance(lexer);
+                array_push(&scanner->context_stack, CONTEXT_CSHARP_PAREN);
+                lexer->result_symbol = CSHARP_EXPLICIT_EXPR_START;
+                return true;
+            }
+            // @ followed by something other than { or (
+            // Return false - tree-sitter will reset and try other tokens (like literal @)
+            return false;
+        }
+        // Not @ after whitespace - fall through to try other tokens
+    }
+
+    // -------------------------------------------------------------------------
     // Using directive lookahead - matches when NOT followed by = or .
     // This is a zero-width token used to disambiguate:
     // - @using Namespace (simple identifier)
@@ -404,7 +438,7 @@ bool tree_sitter_razor_external_scanner_scan(void *payload, TSLexer *lexer, cons
         // The expression should end if we see:
         // - Whitespace
         // - Characters that aren't valid expression continuations
-        // Valid continuations are: . ?. ( [ (handled by token.immediate in grammar)
+        // Valid continuations are: . ?. ?[ ( [ ! (handled by token.immediate in grammar)
         int32_t c = lexer->lookahead;
 
         // If we're at whitespace or any character that isn't a continuation,
@@ -419,7 +453,7 @@ bool tree_sitter_razor_external_scanner_scan(void *payload, TSLexer *lexer, cons
             return true;
         }
 
-        // For . and ?. we need to check if they're followed by identifier
+        // For . we need to check if it's followed by identifier
         // If not (e.g., just . at end of line or ". bar"), expression should end
         if (c == '.') {
             // Look ahead to see what follows the dot
@@ -437,9 +471,13 @@ bool tree_sitter_razor_external_scanner_scan(void *payload, TSLexer *lexer, cons
         }
 
         if (c == '?') {
-            // Check if this is ?. followed by identifier
+            // Check if this is ?. followed by identifier OR ?[ for conditional indexer
             lexer->mark_end(lexer);
             razor_advance(lexer);  // consume ?
+            if (lexer->lookahead == '[') {
+                // ?[ - conditional element access, let grammar handle it
+                return false;
+            }
             if (lexer->lookahead == '.') {
                 razor_advance(lexer);  // consume .
                 int32_t after_dot = lexer->lookahead;
@@ -448,13 +486,19 @@ bool tree_sitter_razor_external_scanner_scan(void *payload, TSLexer *lexer, cons
                     return false;
                 }
             }
-            // Not ?. or not followed by identifier - end expression
+            // Not ?. or ?[ or not followed by identifier - end expression
             lexer->result_symbol = IMPLICIT_EXPR_END;
             return true;
         }
 
         if (c == '(' || c == '[') {
             // These continue the expression (invocation/indexer)
+            return false;
+        }
+
+        if (c == '!') {
+            // Null-forgiveness operator - continues the expression
+            // Let grammar handle it with token.immediate('!')
             return false;
         }
 
@@ -474,11 +518,15 @@ bool tree_sitter_razor_external_scanner_scan(void *payload, TSLexer *lexer, cons
     // NOTE: The grammar controls when this token is valid through valid_symbols.
     // If valid_symbols[TEXT_WITH_LITERAL_AT] is true, we're in an HTML text context
     // (element content, attribute values) even if we're inside a Razor block.
-    if (valid_symbols[TEXT_WITH_LITERAL_AT]) {
+    //
+    // IMPORTANT: We ONLY try this if HTML_TEXT_CONTENT is NOT valid.
+    // When both are valid, let HTML_TEXT_CONTENT handle text (it properly
+    // handles keywords). TEXT_WITH_LITERAL_AT is primarily for element content
+    // where HTML_TEXT_CONTENT isn't used.
+    if (valid_symbols[TEXT_WITH_LITERAL_AT] && !valid_symbols[HTML_TEXT_CONTENT]) {
         bool found_literal_at = false;
         bool last_was_word = false;
 
-        // Scan forward looking for word+@ pattern
         while (!lexer->eof(lexer) && lexer->lookahead != '<' &&
                lexer->lookahead != '"' && lexer->lookahead != '\'') {
 
@@ -526,7 +574,14 @@ bool tree_sitter_razor_external_scanner_scan(void *payload, TSLexer *lexer, cons
     // This allows the grammar to recognize these keywords after @if/@try blocks
     // NOTE: Don't match in C# context - HTML text isn't valid inside C# code
     if (valid_symbols[HTML_TEXT_CONTENT] && !in_csharp_context(scanner)) {
+        // If the very first character is a quote, don't match - let the grammar try string_literal.
+        // This handles directive arguments like @page "/route".
+        // Once we've started matching text, quotes are allowed (e.g., "I'll be back").
+        if (lexer->lookahead == '"' || lexer->lookahead == '\'') {
+            // Don't match - fall through to other token types
+        } else {
         bool has_content = false;
+        bool has_nonwhitespace = false;  // Track if we've seen non-whitespace content
         bool found_keyword = false;
         bool at_line_start = true;  // Track if we're at the logical start of a line
 
@@ -542,10 +597,14 @@ bool tree_sitter_razor_external_scanner_scan(void *payload, TSLexer *lexer, cons
                 break;
             }
 
-            // Stop at string delimiters (for directive arguments like @page "/route")
-            if (lexer->lookahead == '"' || lexer->lookahead == '\'') {
+            // Stop at braces - they might be section/code block delimiters
+            if (lexer->lookahead == '{' || lexer->lookahead == '}') {
                 break;
             }
+
+            // Note: We do NOT stop at quotes (" or ') here.
+            // Quotes are valid in HTML text content (e.g., "I'll be back").
+            // Directive arguments like @page "/route" are handled by grammar rules.
 
             // Track newlines to know when we're at line start
             if (lexer->lookahead == '\n' || lexer->lookahead == '\r') {
@@ -564,30 +623,47 @@ bool tree_sitter_razor_external_scanner_scan(void *payload, TSLexer *lexer, cons
                 continue;
             }
 
-            // Check for keywords only at line start
-            // If we see 'e', 'c', or 'f' at line start, check for else/catch/finally
-            if (at_line_start && (lexer->lookahead == 'e' || lexer->lookahead == 'c' || lexer->lookahead == 'f')) {
+            // Check for keywords that should stop text scanning
+            // - else/catch/finally: Only at line start (for control flow continuation)
+            // - where: At any position when we haven't seen non-whitespace (for @typeparam constraints)
+            bool check_keyword = false;
+            char keyword_buf[8] = {0};
+            int keyword_len = 0;
+            int32_t start_char = lexer->lookahead;
+
+            // else/catch/finally only checked at line start
+            if (at_line_start && (start_char == 'e' || start_char == 'c' || start_char == 'f')) {
+                check_keyword = true;
+            }
+            // 'where' checked when we haven't seen non-whitespace content (for @typeparam constraints)
+            if (start_char == 'w' && !has_nonwhitespace) {
+                check_keyword = true;
+            }
+
+            if (check_keyword) {
                 lexer->mark_end(lexer);
 
                 // Peek ahead to check for keywords
-                char keyword_buf[8] = {0};
-                int keyword_len = 0;
-                int32_t start_char = lexer->lookahead;
-
                 while (keyword_len < 7 && is_identifier_char(lexer->lookahead)) {
                     keyword_buf[keyword_len++] = (char)lexer->lookahead;
                     razor_advance(lexer);
                 }
                 keyword_buf[keyword_len] = '\0';
 
-                // Check if we found a keyword followed by whitespace, brace, or paren
+                // Check if we found a keyword followed by non-identifier character
                 bool is_keyword = false;
                 if (!is_identifier_char(lexer->lookahead)) {
-                    if (start_char == 'e' && strcmp(keyword_buf, "else") == 0) {
-                        is_keyword = true;
-                    } else if (start_char == 'c' && strcmp(keyword_buf, "catch") == 0) {
-                        is_keyword = true;
-                    } else if (start_char == 'f' && strcmp(keyword_buf, "finally") == 0) {
+                    if (at_line_start) {
+                        if (start_char == 'e' && strcmp(keyword_buf, "else") == 0) {
+                            is_keyword = true;
+                        } else if (start_char == 'c' && strcmp(keyword_buf, "catch") == 0) {
+                            is_keyword = true;
+                        } else if (start_char == 'f' && strcmp(keyword_buf, "finally") == 0) {
+                            is_keyword = true;
+                        }
+                    }
+                    // 'where' is a keyword at any position
+                    if (start_char == 'w' && strcmp(keyword_buf, "where") == 0) {
                         is_keyword = true;
                     }
                 }
@@ -600,6 +676,7 @@ bool tree_sitter_razor_external_scanner_scan(void *payload, TSLexer *lexer, cons
 
                 // Not a keyword, the characters we advanced over are content
                 has_content = true;
+                has_nonwhitespace = true;
                 lexer->mark_end(lexer);
                 at_line_start = false;
                 continue;
@@ -608,46 +685,29 @@ bool tree_sitter_razor_external_scanner_scan(void *payload, TSLexer *lexer, cons
             // Any other character - no longer at line start
             razor_advance(lexer);
             has_content = true;
+            has_nonwhitespace = true;
             lexer->mark_end(lexer);
             at_line_start = false;
         }
 
-        if (has_content) {
-            lexer->result_symbol = HTML_TEXT_CONTENT;
-            return true;
-        }
-
-        // If we found a keyword immediately (no content), don't match
+        // If we found a keyword, don't return any content (even whitespace)
         // This lets the grammar try to match the keyword
         if (found_keyword) {
             return false;
         }
+
+        // Only return text if we have non-whitespace content
+        // Pure whitespace should be handled by extras, not as text nodes
+        if (has_nonwhitespace) {
+            lexer->result_symbol = HTML_TEXT_CONTENT;
+            return true;
+        }
+        } // end of else block for quote check
     }
 
     // -------------------------------------------------------------------------
     // Context-tracking tokens for C# vs HTML mode
     // -------------------------------------------------------------------------
-
-    // @{ or @( - enter C# context
-    // Check both together to avoid consuming @ then failing
-    if ((valid_symbols[CSHARP_CODE_BLOCK_START] || valid_symbols[CSHARP_EXPLICIT_EXPR_START]) &&
-        lexer->lookahead == '@') {
-        razor_advance(lexer);
-        if (valid_symbols[CSHARP_CODE_BLOCK_START] && lexer->lookahead == '{') {
-            razor_advance(lexer);
-            array_push(&scanner->context_stack, CONTEXT_CSHARP_BRACE);
-            lexer->result_symbol = CSHARP_CODE_BLOCK_START;
-            return true;
-        }
-        if (valid_symbols[CSHARP_EXPLICIT_EXPR_START] && lexer->lookahead == '(') {
-            razor_advance(lexer);
-            array_push(&scanner->context_stack, CONTEXT_CSHARP_PAREN);
-            lexer->result_symbol = CSHARP_EXPLICIT_EXPR_START;
-            return true;
-        }
-        // Neither @{ nor @( - don't match
-        return false;
-    }
 
     // { in Razor block context (after @if, @for, etc.) - enters C# brace context
     if (valid_symbols[RAZOR_BLOCK_OPEN]) {

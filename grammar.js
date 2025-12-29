@@ -21,6 +21,15 @@ module.exports = grammar(csharp, {
     $.razor_directive,
   ]),
 
+  // Override extras to remove preprocessor directives
+  // In Razor, preproc directives should only appear inside code blocks,
+  // not as extras that can appear anywhere
+  extras: $ => [
+    /[\s\u00A0\uFEFF\u3000]+/,
+    $.comment,
+    // Preprocessor directives removed - they're handled explicitly in _razor_statement
+  ],
+
   externals: ($, original) => original.concat([
     // Text containing literal @ (email addresses, etc.)
     $._text_with_literal_at,   // word+@ pattern like "user@example.com"
@@ -102,6 +111,7 @@ module.exports = grammar(csharp, {
       alias($._razor_if_statement, $.if_statement),
       alias($._razor_for_statement, $.for_statement),
       alias($._razor_foreach_statement, $.foreach_statement),
+      alias($._razor_await_foreach_statement, $.foreach_statement),  // @await foreach for IAsyncEnumerable
       alias($._razor_while_statement, $.while_statement),
       alias($._razor_do_statement, $.do_statement),
       alias($._razor_switch_statement, $.switch_statement),
@@ -138,6 +148,7 @@ module.exports = grammar(csharp, {
       alias($._nested_if_statement, $.if_statement),
       alias($._nested_for_statement, $.for_statement),
       alias($._nested_foreach_statement, $.foreach_statement),
+      alias($._nested_await_foreach_statement, $.foreach_statement),  // @await foreach for IAsyncEnumerable
       alias($._nested_while_statement, $.while_statement),
       alias($._nested_do_statement, $.do_statement),
       alias($._nested_switch_statement, $.switch_statement),
@@ -153,6 +164,7 @@ module.exports = grammar(csharp, {
     _nested_if_statement: $ => seq($._nested_at, token.immediate('if'), $._razor_if_statement_body),
     _nested_for_statement: $ => seq($._nested_at, token.immediate('for'), $._razor_for_statement_body),
     _nested_foreach_statement: $ => seq($._nested_at, token.immediate('foreach'), $._razor_foreach_statement_body),
+    _nested_await_foreach_statement: $ => seq($._nested_at, token.immediate('await'), 'foreach', $._razor_foreach_statement_body),
     _nested_while_statement: $ => seq($._nested_at, token.immediate('while'), $._razor_while_statement_body),
     _nested_do_statement: $ => seq($._nested_at, token.immediate('do'), $._razor_do_statement_body),
     _nested_switch_statement: $ => seq($._nested_at, token.immediate('switch'), $._razor_switch_statement_body),
@@ -191,6 +203,22 @@ module.exports = grammar(csharp, {
       $.local_declaration_statement,
       $.local_function_statement,
       $.throw_statement,
+      // C# top-level directives that can appear in code blocks
+      $.extern_alias_directive,
+      $.using_directive,
+      $.file_scoped_namespace_declaration,
+      $.global_attribute,
+      // Context-aware preprocessor directives
+      alias($.preproc_if_in_top_level, $.preproc_if),
+      $.preproc_region,
+      $.preproc_endregion,
+      $.preproc_line,
+      $.preproc_pragma,
+      $.preproc_nullable,
+      $.preproc_error,
+      $.preproc_warning,
+      $.preproc_define,
+      $.preproc_undef,
     ),
 
     // @: for single-line text literals inside code blocks
@@ -242,7 +270,9 @@ module.exports = grammar(csharp, {
     )),
 
     // Else-if clause (middle of if chain)
+    // Allows optional Razor comments before the else keyword: @if {...} @* comment *@ else if {...}
     razor_else_if_clause: $ => prec.right(seq(
+      repeat($.razor_comment),  // Allow comments before else
       'else',
       'if',
       '(',
@@ -256,7 +286,9 @@ module.exports = grammar(csharp, {
     )),
 
     // Else clause (final else in an if chain)
+    // Allows optional Razor comments before the else keyword: @if {...} @* comment *@ else {...}
     razor_else_clause: $ => seq(
+      repeat($.razor_comment),  // Allow comments before else
       'else',
       $.razor_block,
     ),
@@ -271,9 +303,10 @@ module.exports = grammar(csharp, {
     ),
 
     // -------------------------------------------------------------------------
-    // Razor foreach statement
+    // Razor foreach statement (regular and async)
     // -------------------------------------------------------------------------
     _razor_foreach_statement: $ => seq('@', token.immediate('foreach'), $._razor_foreach_statement_body),
+    _razor_await_foreach_statement: $ => seq('@', token.immediate('await'), 'foreach', $._razor_foreach_statement_body),
     _razor_foreach_statement_body: $ => seq(
       '(',
       choice(
@@ -371,14 +404,21 @@ module.exports = grammar(csharp, {
     )),
 
     // Catch clause for try statements
+    // Allows optional Razor comments before the catch keyword
     razor_catch_clause: $ => seq(
+      repeat($.razor_comment),  // Allow comments before catch
       'catch',
       repeat(choice($.catch_declaration, $.catch_filter_clause)),
       field('body', $.razor_block),
     ),
 
     // Finally clause for try statements
-    razor_finally_clause: $ => seq('finally', $.razor_block),
+    // Allows optional Razor comments before the finally keyword
+    razor_finally_clause: $ => seq(
+      repeat($.razor_comment),  // Allow comments before finally
+      'finally',
+      $.razor_block,
+    ),
 
     // -------------------------------------------------------------------------
     // Razor lock statement
@@ -596,6 +636,8 @@ module.exports = grammar(csharp, {
 
     _html_attribute: $ => choice(
       $.html_attribute,
+      $.escaped_attribute,
+      $.dynamic_attribute,  // Must come before razor_attribute (both start with @)
       $.razor_attribute,
     ),
 
@@ -610,12 +652,11 @@ module.exports = grammar(csharp, {
       $.html_attribute_name,
     ),
 
-    // Note: @name attributes are handled by razor_attribute
-    // But @ alone is a valid HTML attribute name
-    html_attribute_name: _ => choice(
-      /[a-zA-Z_:][a-zA-Z0-9_.:-]*/,
-      '@',
-    ),
+    // HTML attribute name per HTML spec - excludes control characters, space, quotes,
+    // slash, equals, and noncharacters. Also excludes @ (handled by razor_attribute).
+    // This allows special attribute syntaxes like [item], (click), *directive, #local
+    // See: https://html.spec.whatwg.org/multipage/syntax.html#attributes-2
+    html_attribute_name: _ => /[^\u0000-\u001F\u007F-\u009F \n\r\t\f"'>/=@\uFDD0-\uFDEF\uFFFE\uFFFF]+/u,
 
     html_attribute_value: $ => choice(
       $.html_quoted_attribute_value,
@@ -638,6 +679,8 @@ module.exports = grammar(csharp, {
       $.html_character_reference,
       $.razor_explicit_expression,
       $.razor_implicit_expression,
+      // Escaped @@ in attribute values
+      $.escaped_at,
     )),
 
     _html_single_quoted_attribute_content: $ => repeat1(choice(
@@ -647,6 +690,8 @@ module.exports = grammar(csharp, {
       $.html_character_reference,
       $.razor_explicit_expression,
       $.razor_implicit_expression,
+      // Escaped @@ in attribute values
+      $.escaped_at,
     )),
 
     // Plain unquoted attribute value (no @ or Razor): class=my-class
@@ -666,8 +711,41 @@ module.exports = grammar(csharp, {
       seq('@', alias($._immediate_html_attribute_name, $.html_attribute_name)),
     ),
 
+    // Escaped attribute name (@@attr) - produces literal @attr as attribute name
+    // e.g., <p @@attr="value" /> or <p @@attr />
+    escaped_attribute: $ => choice(
+      // With value: @@attr="value"
+      seq(
+        '@@',
+        alias($._immediate_html_attribute_name, $.html_attribute_name),
+        '=',
+        $.html_attribute_value,
+      ),
+      // Without value: @@attr
+      seq('@@', alias($._immediate_html_attribute_name, $.html_attribute_name)),
+    ),
+
+    // Dynamic attribute name using explicit expression
+    // e.g., <div @(attributeName)="value" /> - attribute name comes from expression
+    // Uses simple @( ... ) without context tracking since we're in HTML attribute position
+    dynamic_attribute: $ => choice(
+      // With value: @(attrName)="value"
+      seq(
+        alias($._dynamic_attr_expression, $.razor_explicit_expression),
+        '=',
+        $.html_attribute_value,
+      ),
+      // Without value: @(attrName)
+      alias($._dynamic_attr_expression, $.razor_explicit_expression),
+    ),
+
+    // Explicit expression for dynamic attribute names - doesn't use context tracking
+    _dynamic_attr_expression: $ => seq('@(', $.expression, ')'),
+
     // Attribute name that must immediately follow @ (no whitespace allowed)
-    _immediate_html_attribute_name: _ => token.immediate(/[a-zA-Z_:][a-zA-Z0-9_.:-]*/),
+    // Must start with letter, underscore, or colon (not with ( which would be dynamic_attribute)
+    // This distinguishes @onclick from @(expr)
+    _immediate_html_attribute_name: _ => token.immediate(/[a-zA-Z_:][^\u0000-\u001F\u007F-\u009F \n\r\t\f"'>/=@\uFDD0-\uFDEF\uFFFE\uFFFF]*/u),
 
     // =========================================================================
     // Comments
@@ -792,6 +870,66 @@ module.exports = grammar(csharp, {
       /\n/,
     ),
 
+    // Context-aware #if/#elif/#else/#endif preprocessor directives
+    // These override the C# grammar's versions to use the external scanner token
+    // that only matches # in C# context
+
+    // Content inside #if blocks - statements and Razor-specific constructs
+    // Note: We use _razor_statement instead of statement to avoid including
+    // preproc_if recursively which would cause conflicts with #else/#elif
+    _preproc_if_content: $ => choice(
+      $._razor_statement_no_preproc,  // Statements without preproc to avoid conflicts
+      $.element,
+      $.self_closing_element,
+      $.void_element,
+      $.razor_text_literal,
+      alias($._razor_block_comment, $.razor_comment),
+    ),
+
+    // Same as _razor_statement but without preproc_if to avoid conflicts
+    _razor_statement_no_preproc: $ => choice(
+      $.block,
+      $.empty_statement,
+      $.expression_statement,
+      $.local_declaration_statement,
+      $.local_function_statement,
+      $.throw_statement,
+    ),
+
+    preproc_if_in_top_level: $ => seq(
+      $._preproc_directive_start,
+      alias(token.immediate(/[ \t]*if/), '#if'),
+      field('condition', $._preproc_expression),
+      /\n/,
+      repeat($._preproc_if_content),
+      field('alternative', optional(choice(
+        alias($.preproc_else_in_top_level, $.preproc_else),
+        alias($.preproc_elif_in_top_level, $.preproc_elif),
+      ))),
+      $._preproc_directive_start,
+      alias(token.immediate(/[ \t]*endif/), '#endif'),
+      /\n/,
+    ),
+
+    preproc_else_in_top_level: $ => prec.right(seq(
+      $._preproc_directive_start,
+      alias(token.immediate(/[ \t]*else/), '#else'),
+      /\n/,
+      repeat($._preproc_if_content),
+    )),
+
+    preproc_elif_in_top_level: $ => prec.right(seq(
+      $._preproc_directive_start,
+      alias(token.immediate(/[ \t]*elif/), '#elif'),
+      field('condition', $._preproc_expression),
+      /\n/,
+      repeat($._preproc_if_content),
+      field('alternative', optional(choice(
+        alias($.preproc_else_in_top_level, $.preproc_else),
+        alias($.preproc_elif_in_top_level, $.preproc_elif),
+      ))),
+    )),
+
     // =========================================================================
     // Razor Directives
     // =========================================================================
@@ -860,9 +998,13 @@ module.exports = grammar(csharp, {
 
     // Override declaration_list to use context-tracking tokens
     // This is used by @functions and @code directives
+    // Allows Razor comments alongside C# declarations
     declaration_list: $ => seq(
       alias($._razor_block_open, '{'),
-      repeat($.declaration),
+      repeat(choice(
+        $.declaration,
+        alias($._razor_block_comment, $.razor_comment),
+      )),
       alias($._csharp_context_close, '}'),
     ),
 
@@ -886,7 +1028,29 @@ module.exports = grammar(csharp, {
 
     razor_implements_directive: $ => seq('@', token.immediate('implements'), $.type),
 
-    razor_typeparam_directive: $ => seq('@', token.immediate('typeparam'), $.identifier, optional($.type_parameter_constraints_clause)),
+    // @typeparam TItem where TItem : class
+    // Two variants: with constraint (higher precedence) and without
+    // This allows the parser to prefer matching the constraint over leaving it as text
+    razor_typeparam_directive: $ => choice(
+      // With constraint - higher precedence to prefer this over the version without
+      prec(10, seq(
+        '@',
+        token.immediate('typeparam'),
+        field('name', $.identifier),
+        field('constraint', alias($._razor_typeparam_constraint, $.type_parameter_constraints_clause)),
+      )),
+      // Without constraint
+      seq('@', token.immediate('typeparam'), field('name', $.identifier)),
+    ),
+
+    // Type parameter constraint clause for @typeparam directive
+    // Uses token('where') with precedence to compete with text matching
+    _razor_typeparam_constraint: $ => seq(
+      token(prec(10, 'where')),
+      $.identifier,
+      ':',
+      commaSep1($.type_parameter_constraint),
+    ),
 
     razor_preservewhitespace_directive: $ => seq('@', token.immediate('preservewhitespace'), $.boolean_literal),
 
@@ -998,6 +1162,8 @@ module.exports = grammar(csharp, {
       alias($._razor_invocation, $.invocation_expression),
       alias($._razor_element_access, $.element_access_expression),
       alias($._razor_conditional_access, $.conditional_access_expression),
+      alias($._razor_conditional_element_access, $.conditional_access_expression),
+      alias($._razor_suppression_expression, $.postfix_unary_expression),
     ),
 
     // Member access: expr.identifier
@@ -1031,6 +1197,24 @@ module.exports = grammar(csharp, {
       field('name', alias(token.immediate(/[_\p{L}][_\p{L}\p{N}]*/u), $.identifier)),
     )),
 
+    // Conditional element access: expr?[index]
+    // Uses token.immediate() to prevent whitespace before ?[
+    // Produces conditional_access_expression with element_binding_expression
+    _razor_conditional_element_access: $ => prec.left(seq(
+      field('expression', $._razor_primary_expression),
+      token.immediate('?['),
+      field('subscript', $.expression),
+      ']',
+    )),
+
+    // Null-forgiveness (suppression) operator: expr!
+    // Uses token.immediate() to prevent whitespace before !
+    // Can be chained: val!.Name, val![0], val!?.bar
+    _razor_suppression_expression: $ => prec.left(seq(
+      field('argument', $._razor_primary_expression),
+      token.immediate('!'),
+    )),
+
     // =========================================================================
     // Templated Razor Delegate (@<element>...</element>)
     // =========================================================================
@@ -1047,6 +1231,18 @@ module.exports = grammar(csharp, {
     non_lvalue_expression: ($, original) => choice(
       original,
       $.razor_fragment,
+    ),
+
+    // Extend statement to include razor_text_literal (@:) as a valid statement body
+    // This allows: if (cond) @:text content
+    // Uses lower precedence to prefer block's explicit handling when inside a block
+    statement: ($, original) => choice(
+      original,
+      prec(-1, $.razor_text_literal),
+      // Also allow HTML elements as statement bodies
+      prec(-1, $.element),
+      prec(-1, $.self_closing_element),
+      prec(-1, $.void_element),
     ),
 
     // Override block to allow HTML elements inside nested C# blocks
@@ -1070,24 +1266,39 @@ module.exports = grammar(csharp, {
     // =========================================================================
 
     // Top-level text that can appear between Razor statements
+    // Uses repeat1 to combine consecutive text fragments into a single text node
     // Uses external scanner to stop before else/catch/finally keywords
+    _top_level_text: $ => alias(prec.right(repeat1($._top_level_text_fragment)), $.text),
+
+    // Individual top-level text fragments
     // Note: The external scanner handles & intelligently - stops only for valid character references
-    _top_level_text: $ => choice(
+    // Uses distinct symbol names (_top_text_*) to avoid lexer conflicts with element text patterns
+    _top_level_text_fragment: $ => choice(
       // Text containing literal @ (email addresses like user@example.com)
-      prec(1, alias($._text_with_literal_at, $.text)),
+      prec(1, $._text_with_literal_at),
       // Main text content - uses external scanner to be keyword-aware and handle & properly
-      alias($._html_text_content, $.text),
+      // Lower precedence (-1) so grammar keywords like 'where' can win
+      prec(-1, $._html_text_content),
       // Fallback for text that doesn't start with keyword characters
       // Excludes: e/c/f (keywords), < (HTML), @ (Razor), [ ( (expression), \n, " ' (strings), whitespace, . (C# qualified names)
-      alias(prec(-100, /[^ecf.<@\[(\n"'\s][^.<@\[(\n"']*/), $.text),
+      $._top_text_content,
       // Single non-keyword-starting character (also excludes quotes, whitespace, dot)
-      alias(prec(-101, /[^ecf.<@\[(\n"'\s]/), $.text),
+      $._top_text_single,
       // Punctuation [ and ( that could be expression continuations
-      alias(prec(-102, /[\[(]/), $.text),
+      $._top_text_punc,
       // Dot as text - lowest precedence, only matches when nothing else can
       // This handles cases like "@foo .bar" where the dot is text after an expression
-      alias(prec(-200, /\./), $.text),
+      $._top_text_dot,
     ),
+
+    // Helper tokens for top-level text with distinct symbol names to prevent lexer conflicts
+    // Note: Quotes (" and ') are excluded from these fallback patterns because they must be
+    // handled by the external scanner. This allows the grammar to parse directive arguments
+    // like @page "/route" correctly, while the external scanner handles quotes in regular text.
+    _top_text_content: _ => token(prec(-100, /[^ecf.<@\[(\n"'{}\s][^.<@\[(\n"'{}]*/)),
+    _top_text_single: _ => token(prec(-101, /[^ecf.<@\[(\n"'{}\s]/)),
+    _top_text_punc: _ => token(prec(-102, /[\[(]/)),
+    _top_text_dot: _ => token(prec(-200, /\./)),
 
     // Text inside elements - combines consecutive text fragments into a single node
     // This allows bare & to be part of text while still recognizing character references

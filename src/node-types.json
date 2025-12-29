@@ -502,6 +502,10 @@
         "named": true
       },
       {
+        "type": "element",
+        "named": true
+      },
+      {
         "type": "empty_statement",
         "named": true
       },
@@ -550,7 +554,15 @@
         "named": true
       },
       {
+        "type": "razor_text_literal",
+        "named": true
+      },
+      {
         "type": "return_statement",
+        "named": true
+      },
+      {
+        "type": "self_closing_element",
         "named": true
       },
       {
@@ -571,6 +583,10 @@
       },
       {
         "type": "using_statement",
+        "named": true
+      },
+      {
+        "type": "void_element",
         "named": true
       },
       {
@@ -637,36 +653,6 @@
       },
       {
         "type": "tuple_type",
-        "named": true
-      }
-    ]
-  },
-  {
-    "type": "type_declaration",
-    "named": true,
-    "subtypes": [
-      {
-        "type": "class_declaration",
-        "named": true
-      },
-      {
-        "type": "delegate_declaration",
-        "named": true
-      },
-      {
-        "type": "enum_declaration",
-        "named": true
-      },
-      {
-        "type": "interface_declaration",
-        "named": true
-      },
-      {
-        "type": "record_declaration",
-        "named": true
-      },
-      {
-        "type": "struct_declaration",
         "named": true
       }
     ]
@@ -1287,6 +1273,10 @@
         {
           "type": "null_literal",
           "named": true
+        },
+        {
+          "type": "postfix_unary_expression",
+          "named": true
         }
       ]
     }
@@ -1491,27 +1481,11 @@
       "required": false,
       "types": [
         {
-          "type": "element",
-          "named": true
-        },
-        {
           "type": "razor_comment",
           "named": true
         },
         {
-          "type": "razor_text_literal",
-          "named": true
-        },
-        {
-          "type": "self_closing_element",
-          "named": true
-        },
-        {
           "type": "statement",
-          "named": true
-        },
-        {
-          "type": "void_element",
           "named": true
         }
       ]
@@ -1660,6 +1634,10 @@
         },
         {
           "type": "catch_filter_clause",
+          "named": true
+        },
+        {
+          "type": "razor_comment",
           "named": true
         }
       ]
@@ -1926,6 +1904,10 @@
           {
             "type": "member_access_expression",
             "named": true
+          },
+          {
+            "type": "postfix_unary_expression",
+            "named": true
           }
         ]
       },
@@ -1935,6 +1917,16 @@
         "types": [
           {
             "type": "identifier",
+            "named": true
+          }
+        ]
+      },
+      "subscript": {
+        "multiple": false,
+        "required": false,
+        "types": [
+          {
+            "type": "expression",
             "named": true
           }
         ]
@@ -2248,6 +2240,10 @@
         {
           "type": "declaration",
           "named": true
+        },
+        {
+          "type": "razor_comment",
+          "named": true
         }
       ]
     }
@@ -2466,6 +2462,25 @@
     "fields": {}
   },
   {
+    "type": "dynamic_attribute",
+    "named": true,
+    "fields": {},
+    "children": {
+      "multiple": true,
+      "required": true,
+      "types": [
+        {
+          "type": "html_attribute_value",
+          "named": true
+        },
+        {
+          "type": "razor_explicit_expression",
+          "named": true
+        }
+      ]
+    }
+  },
+  {
     "type": "element",
     "named": true,
     "fields": {},
@@ -2575,6 +2590,10 @@
           {
             "type": "member_access_expression",
             "named": true
+          },
+          {
+            "type": "postfix_unary_expression",
+            "named": true
           }
         ]
       },
@@ -2614,11 +2633,15 @@
     "named": true,
     "fields": {},
     "children": {
-      "multiple": false,
+      "multiple": true,
       "required": true,
       "types": [
         {
           "type": "razor_block",
+          "named": true
+        },
+        {
+          "type": "razor_comment",
           "named": true
         }
       ]
@@ -2746,6 +2769,30 @@
         },
         {
           "type": "preproc_if",
+          "named": true
+        }
+      ]
+    }
+  },
+  {
+    "type": "escaped_at",
+    "named": true,
+    "fields": {}
+  },
+  {
+    "type": "escaped_attribute",
+    "named": true,
+    "fields": {},
+    "children": {
+      "multiple": true,
+      "required": true,
+      "types": [
+        {
+          "type": "html_attribute_name",
+          "named": true
+        },
+        {
+          "type": "html_attribute_value",
           "named": true
         }
       ]
@@ -2978,7 +3025,7 @@
     "named": true,
     "fields": {},
     "children": {
-      "multiple": false,
+      "multiple": true,
       "required": true,
       "types": [
         {
@@ -2987,6 +3034,10 @@
         },
         {
           "type": "razor_block",
+          "named": true
+        },
+        {
+          "type": "razor_comment",
           "named": true
         }
       ]
@@ -3337,11 +3388,6 @@
     }
   },
   {
-    "type": "html_attribute_name",
-    "named": true,
-    "fields": {}
-  },
-  {
     "type": "html_attribute_value",
     "named": true,
     "fields": {},
@@ -3376,6 +3422,10 @@
       "multiple": true,
       "required": false,
       "types": [
+        {
+          "type": "escaped_at",
+          "named": true
+        },
         {
           "type": "html_character_reference",
           "named": true
@@ -3766,6 +3816,10 @@
           },
           {
             "type": "member_access_expression",
+            "named": true
+          },
+          {
+            "type": "postfix_unary_expression",
             "named": true
           }
         ]
@@ -4190,6 +4244,10 @@
           },
           {
             "type": "member_access_expression",
+            "named": true
+          },
+          {
+            "type": "postfix_unary_expression",
             "named": true
           },
           {
@@ -4911,10 +4969,41 @@
   {
     "type": "postfix_unary_expression",
     "named": true,
-    "fields": {},
+    "fields": {
+      "argument": {
+        "multiple": false,
+        "required": false,
+        "types": [
+          {
+            "type": "conditional_access_expression",
+            "named": true
+          },
+          {
+            "type": "element_access_expression",
+            "named": true
+          },
+          {
+            "type": "identifier",
+            "named": true
+          },
+          {
+            "type": "invocation_expression",
+            "named": true
+          },
+          {
+            "type": "member_access_expression",
+            "named": true
+          },
+          {
+            "type": "postfix_unary_expression",
+            "named": true
+          }
+        ]
+      }
+    },
     "children": {
       "multiple": false,
-      "required": true,
+      "required": false,
       "types": [
         {
           "type": "expression",
@@ -4941,7 +5030,6 @@
   {
     "type": "preproc_define",
     "named": true,
-    "extra": true,
     "fields": {},
     "children": {
       "multiple": false,
@@ -5016,7 +5104,19 @@
           "named": true
         },
         {
+          "type": "block",
+          "named": true
+        },
+        {
           "type": "declaration",
+          "named": true
+        },
+        {
+          "type": "element",
+          "named": true
+        },
+        {
+          "type": "empty_statement",
           "named": true
         },
         {
@@ -5028,23 +5128,35 @@
           "named": true
         },
         {
-          "type": "extern_alias_directive",
+          "type": "expression_statement",
           "named": true
         },
         {
-          "type": "file_scoped_namespace_declaration",
+          "type": "local_declaration_statement",
           "named": true
         },
         {
-          "type": "global_attribute",
+          "type": "local_function_statement",
           "named": true
         },
         {
-          "type": "statement",
+          "type": "razor_comment",
           "named": true
         },
         {
-          "type": "type_declaration",
+          "type": "razor_text_literal",
+          "named": true
+        },
+        {
+          "type": "self_closing_element",
+          "named": true
+        },
+        {
+          "type": "throw_statement",
+          "named": true
+        },
+        {
+          "type": "void_element",
           "named": true
         }
       ]
@@ -5063,7 +5175,19 @@
           "named": true
         },
         {
+          "type": "block",
+          "named": true
+        },
+        {
           "type": "declaration",
+          "named": true
+        },
+        {
+          "type": "element",
+          "named": true
+        },
+        {
+          "type": "empty_statement",
           "named": true
         },
         {
@@ -5075,23 +5199,35 @@
           "named": true
         },
         {
-          "type": "extern_alias_directive",
+          "type": "expression_statement",
           "named": true
         },
         {
-          "type": "file_scoped_namespace_declaration",
+          "type": "local_declaration_statement",
           "named": true
         },
         {
-          "type": "global_attribute",
+          "type": "local_function_statement",
           "named": true
         },
         {
-          "type": "statement",
+          "type": "razor_comment",
           "named": true
         },
         {
-          "type": "type_declaration",
+          "type": "razor_text_literal",
+          "named": true
+        },
+        {
+          "type": "self_closing_element",
+          "named": true
+        },
+        {
+          "type": "throw_statement",
+          "named": true
+        },
+        {
+          "type": "void_element",
           "named": true
         }
       ]
@@ -5100,7 +5236,6 @@
   {
     "type": "preproc_endregion",
     "named": true,
-    "extra": true,
     "fields": {
       "content": {
         "multiple": false,
@@ -5117,7 +5252,6 @@
   {
     "type": "preproc_error",
     "named": true,
-    "extra": true,
     "fields": {},
     "children": {
       "multiple": false,
@@ -5188,7 +5322,19 @@
       "required": false,
       "types": [
         {
+          "type": "block",
+          "named": true
+        },
+        {
           "type": "declaration",
+          "named": true
+        },
+        {
+          "type": "element",
+          "named": true
+        },
+        {
+          "type": "empty_statement",
           "named": true
         },
         {
@@ -5200,23 +5346,35 @@
           "named": true
         },
         {
-          "type": "extern_alias_directive",
+          "type": "expression_statement",
           "named": true
         },
         {
-          "type": "file_scoped_namespace_declaration",
+          "type": "local_declaration_statement",
           "named": true
         },
         {
-          "type": "global_attribute",
+          "type": "local_function_statement",
           "named": true
         },
         {
-          "type": "statement",
+          "type": "razor_comment",
           "named": true
         },
         {
-          "type": "type_declaration",
+          "type": "razor_text_literal",
+          "named": true
+        },
+        {
+          "type": "self_closing_element",
+          "named": true
+        },
+        {
+          "type": "throw_statement",
+          "named": true
+        },
+        {
+          "type": "void_element",
           "named": true
         }
       ]
@@ -5289,7 +5447,6 @@
   {
     "type": "preproc_line",
     "named": true,
-    "extra": true,
     "fields": {},
     "children": {
       "multiple": true,
@@ -5309,13 +5466,11 @@
   {
     "type": "preproc_nullable",
     "named": true,
-    "extra": true,
     "fields": {}
   },
   {
     "type": "preproc_pragma",
     "named": true,
-    "extra": true,
     "fields": {},
     "children": {
       "multiple": true,
@@ -5339,7 +5494,6 @@
   {
     "type": "preproc_region",
     "named": true,
-    "extra": true,
     "fields": {
       "content": {
         "multiple": false,
@@ -5356,7 +5510,6 @@
   {
     "type": "preproc_undef",
     "named": true,
-    "extra": true,
     "fields": {},
     "children": {
       "multiple": false,
@@ -5372,7 +5525,6 @@
   {
     "type": "preproc_warning",
     "named": true,
-    "extra": true,
     "fields": {},
     "children": {
       "multiple": false,
@@ -5750,6 +5902,18 @@
           "named": true
         },
         {
+          "type": "extern_alias_directive",
+          "named": true
+        },
+        {
+          "type": "file_scoped_namespace_declaration",
+          "named": true
+        },
+        {
+          "type": "global_attribute",
+          "named": true
+        },
+        {
           "type": "identifier",
           "named": true
         },
@@ -5774,6 +5938,50 @@
           "named": true
         },
         {
+          "type": "postfix_unary_expression",
+          "named": true
+        },
+        {
+          "type": "preproc_define",
+          "named": true
+        },
+        {
+          "type": "preproc_endregion",
+          "named": true
+        },
+        {
+          "type": "preproc_error",
+          "named": true
+        },
+        {
+          "type": "preproc_if",
+          "named": true
+        },
+        {
+          "type": "preproc_line",
+          "named": true
+        },
+        {
+          "type": "preproc_nullable",
+          "named": true
+        },
+        {
+          "type": "preproc_pragma",
+          "named": true
+        },
+        {
+          "type": "preproc_region",
+          "named": true
+        },
+        {
+          "type": "preproc_undef",
+          "named": true
+        },
+        {
+          "type": "preproc_warning",
+          "named": true
+        },
+        {
           "type": "razor_comment",
           "named": true
         },
@@ -5791,6 +5999,10 @@
         },
         {
           "type": "throw_statement",
+          "named": true
+        },
+        {
+          "type": "using_directive",
           "named": true
         },
         {
@@ -5845,6 +6057,18 @@
           "named": true
         },
         {
+          "type": "extern_alias_directive",
+          "named": true
+        },
+        {
+          "type": "file_scoped_namespace_declaration",
+          "named": true
+        },
+        {
+          "type": "global_attribute",
+          "named": true
+        },
+        {
           "type": "identifier",
           "named": true
         },
@@ -5869,6 +6093,50 @@
           "named": true
         },
         {
+          "type": "postfix_unary_expression",
+          "named": true
+        },
+        {
+          "type": "preproc_define",
+          "named": true
+        },
+        {
+          "type": "preproc_endregion",
+          "named": true
+        },
+        {
+          "type": "preproc_error",
+          "named": true
+        },
+        {
+          "type": "preproc_if",
+          "named": true
+        },
+        {
+          "type": "preproc_line",
+          "named": true
+        },
+        {
+          "type": "preproc_nullable",
+          "named": true
+        },
+        {
+          "type": "preproc_pragma",
+          "named": true
+        },
+        {
+          "type": "preproc_region",
+          "named": true
+        },
+        {
+          "type": "preproc_undef",
+          "named": true
+        },
+        {
+          "type": "preproc_warning",
+          "named": true
+        },
+        {
           "type": "razor_comment",
           "named": true
         },
@@ -5886,6 +6154,10 @@
         },
         {
           "type": "throw_statement",
+          "named": true
+        },
+        {
+          "type": "using_directive",
           "named": true
         },
         {
@@ -5953,6 +6225,16 @@
           }
         ]
       }
+    },
+    "children": {
+      "multiple": true,
+      "required": false,
+      "types": [
+        {
+          "type": "razor_comment",
+          "named": true
+        }
+      ]
     }
   },
   {
@@ -6057,6 +6339,10 @@
         },
         {
           "type": "null_literal",
+          "named": true
+        },
+        {
+          "type": "postfix_unary_expression",
           "named": true
         }
       ]
@@ -6410,6 +6696,18 @@
           "named": true
         },
         {
+          "type": "extern_alias_directive",
+          "named": true
+        },
+        {
+          "type": "file_scoped_namespace_declaration",
+          "named": true
+        },
+        {
+          "type": "global_attribute",
+          "named": true
+        },
+        {
           "type": "identifier",
           "named": true
         },
@@ -6438,6 +6736,50 @@
           "named": true
         },
         {
+          "type": "postfix_unary_expression",
+          "named": true
+        },
+        {
+          "type": "preproc_define",
+          "named": true
+        },
+        {
+          "type": "preproc_endregion",
+          "named": true
+        },
+        {
+          "type": "preproc_error",
+          "named": true
+        },
+        {
+          "type": "preproc_if",
+          "named": true
+        },
+        {
+          "type": "preproc_line",
+          "named": true
+        },
+        {
+          "type": "preproc_nullable",
+          "named": true
+        },
+        {
+          "type": "preproc_pragma",
+          "named": true
+        },
+        {
+          "type": "preproc_region",
+          "named": true
+        },
+        {
+          "type": "preproc_undef",
+          "named": true
+        },
+        {
+          "type": "preproc_warning",
+          "named": true
+        },
+        {
           "type": "razor_comment",
           "named": true
         },
@@ -6455,6 +6797,10 @@
         },
         {
           "type": "throw_statement",
+          "named": true
+        },
+        {
+          "type": "using_directive",
           "named": true
         },
         {
@@ -6510,20 +6856,27 @@
   {
     "type": "razor_typeparam_directive",
     "named": true,
-    "fields": {},
-    "children": {
-      "multiple": true,
-      "required": true,
-      "types": [
-        {
-          "type": "identifier",
-          "named": true
-        },
-        {
-          "type": "type_parameter_constraints_clause",
-          "named": true
-        }
-      ]
+    "fields": {
+      "constraint": {
+        "multiple": false,
+        "required": false,
+        "types": [
+          {
+            "type": "type_parameter_constraints_clause",
+            "named": true
+          }
+        ]
+      },
+      "name": {
+        "multiple": false,
+        "required": true,
+        "types": [
+          {
+            "type": "identifier",
+            "named": true
+          }
+        ]
+      }
     }
   },
   {
@@ -6840,6 +7193,14 @@
       "required": true,
       "types": [
         {
+          "type": "dynamic_attribute",
+          "named": true
+        },
+        {
+          "type": "escaped_attribute",
+          "named": true
+        },
+        {
           "type": "html_attribute",
           "named": true
         },
@@ -6904,6 +7265,14 @@
       "multiple": true,
       "required": true,
       "types": [
+        {
+          "type": "dynamic_attribute",
+          "named": true
+        },
+        {
+          "type": "escaped_attribute",
+          "named": true
+        },
         {
           "type": "html_attribute",
           "named": true
@@ -7691,6 +8060,14 @@
       "required": true,
       "types": [
         {
+          "type": "dynamic_attribute",
+          "named": true
+        },
+        {
+          "type": "escaped_attribute",
+          "named": true
+        },
+        {
           "type": "html_attribute",
           "named": true
         },
@@ -8055,6 +8432,10 @@
     "named": false
   },
   {
+    "type": "?[",
+    "named": false
+  },
+  {
     "type": "@",
     "named": false
   },
@@ -8068,6 +8449,10 @@
   },
   {
     "type": "@:",
+    "named": false
+  },
+  {
+    "type": "@@",
     "named": false
   },
   {
@@ -8263,10 +8648,6 @@
     "named": true
   },
   {
-    "type": "escaped_at",
-    "named": true
-  },
-  {
     "type": "event",
     "named": false
   },
@@ -8333,6 +8714,10 @@
   {
     "type": "hidden",
     "named": false
+  },
+  {
+    "type": "html_attribute_name",
+    "named": true
   },
   {
     "type": "html_character_reference",

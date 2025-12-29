@@ -762,3 +762,207 @@ Bare ampersand in text
     (text)
     (end_tag
       (tag_name))))
+
+================================================================================
+Symbol-bound attribute with brackets
+================================================================================
+<a [item]='Foo'></a>
+--------------------------------------------------------------------------------
+
+(compilation_unit
+  (element
+    (start_tag
+      (tag_name)
+      (html_attribute
+        (html_attribute_name)
+        (html_attribute_value
+          (html_quoted_attribute_value))))
+    (end_tag
+      (tag_name))))
+
+================================================================================
+Two-way binding attribute
+================================================================================
+<a [(item)]='Foo'></a>
+--------------------------------------------------------------------------------
+
+(compilation_unit
+  (element
+    (start_tag
+      (tag_name)
+      (html_attribute
+        (html_attribute_name)
+        (html_attribute_value
+          (html_quoted_attribute_value))))
+    (end_tag
+      (tag_name))))
+
+================================================================================
+Event binding attribute
+================================================================================
+<a (click)='Foo'></a>
+--------------------------------------------------------------------------------
+
+(compilation_unit
+  (element
+    (start_tag
+      (tag_name)
+      (html_attribute
+        (html_attribute_name)
+        (html_attribute_value
+          (html_quoted_attribute_value))))
+    (end_tag
+      (tag_name))))
+
+================================================================================
+Structural directive attribute
+================================================================================
+<a *ngIf='condition'></a>
+--------------------------------------------------------------------------------
+
+(compilation_unit
+  (element
+    (start_tag
+      (tag_name)
+      (html_attribute
+        (html_attribute_name)
+        (html_attribute_value
+          (html_quoted_attribute_value))))
+    (end_tag
+      (tag_name))))
+
+================================================================================
+Template reference attribute
+================================================================================
+<input #myInput />
+--------------------------------------------------------------------------------
+
+(compilation_unit
+  (void_element
+    (tag_name)
+    (html_attribute
+      (html_attribute_name))))
+
+================================================================================
+Escaped attribute name with value
+================================================================================
+<p @@attr="value"></p>
+--------------------------------------------------------------------------------
+
+(compilation_unit
+  (element
+    (start_tag
+      (tag_name)
+      (escaped_attribute
+        (html_attribute_name)
+        (html_attribute_value
+          (html_quoted_attribute_value))))
+    (end_tag
+      (tag_name))))
+
+================================================================================
+Escaped attribute name without value
+================================================================================
+<p @@attr></p>
+--------------------------------------------------------------------------------
+
+(compilation_unit
+  (element
+    (start_tag
+      (tag_name)
+      (escaped_attribute
+        (html_attribute_name)))
+    (end_tag
+      (tag_name))))
+
+================================================================================
+Escaped at in attribute value
+================================================================================
+<span foo='@@'></span>
+--------------------------------------------------------------------------------
+
+(compilation_unit
+  (element
+    (start_tag
+      (tag_name)
+      (html_attribute
+        (html_attribute_name)
+        (html_attribute_value
+          (html_quoted_attribute_value
+            (escaped_at)))))
+    (end_tag
+      (tag_name))))
+
+================================================================================
+Multiple escape combinations in attribute
+================================================================================
+<span foo='@@@(2+3)'></span>
+--------------------------------------------------------------------------------
+
+(compilation_unit
+  (element
+    (start_tag
+      (tag_name)
+      (html_attribute
+        (html_attribute_name)
+        (html_attribute_value
+          (html_quoted_attribute_value
+            (escaped_at)
+            (razor_explicit_expression
+              (binary_expression
+                (integer_literal)
+                (integer_literal)))))))
+    (end_tag
+      (tag_name))))
+
+================================================================================
+Dynamic attribute name with value
+================================================================================
+<div @(attributeName)="value"></div>
+--------------------------------------------------------------------------------
+
+(compilation_unit
+  (element
+    (start_tag
+      (tag_name)
+      (dynamic_attribute
+        (razor_explicit_expression
+          (identifier))
+        (html_attribute_value
+          (html_quoted_attribute_value))))
+    (end_tag
+      (tag_name))))
+
+================================================================================
+Dynamic attribute name without value
+================================================================================
+<div @(someCondition)></div>
+--------------------------------------------------------------------------------
+
+(compilation_unit
+  (element
+    (start_tag
+      (tag_name)
+      (dynamic_attribute
+        (razor_explicit_expression
+          (identifier))))
+    (end_tag
+      (tag_name))))
+
+================================================================================
+Text with apostrophe
+================================================================================
+I'll be back
+--------------------------------------------------------------------------------
+
+(compilation_unit
+  (text))
+
+================================================================================
+Text with double quotes
+================================================================================
+He said "hello"
+--------------------------------------------------------------------------------
+
+(compilation_unit
+  (text))

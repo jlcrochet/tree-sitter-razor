@@ -264,3 +264,120 @@ Whitespace in C# code is allowed (extras)
           (member_access_expression
             (identifier)
             (identifier)))))))
+
+================================================================================
+Text literal as statement body
+================================================================================
+@{
+    void Render() {
+        if (show) @:Hello
+    }
+}
+--------------------------------------------------------------------------------
+
+(compilation_unit
+  (razor_code_block
+    (local_function_statement
+      (predefined_type)
+      (identifier)
+      (parameter_list)
+      (block
+        (if_statement
+          (identifier)
+          (razor_text_literal))))))
+
+================================================================================
+HTML element as statement body
+================================================================================
+@{
+    void Render() {
+        if (show) <span>Hi</span>
+    }
+}
+--------------------------------------------------------------------------------
+
+(compilation_unit
+  (razor_code_block
+    (local_function_statement
+      (predefined_type)
+      (identifier)
+      (parameter_list)
+      (block
+        (if_statement
+          (identifier)
+          (element
+            (start_tag
+              (tag_name))
+            (text)
+            (end_tag
+              (tag_name))))))))
+
+================================================================================
+Preprocessor if with else
+================================================================================
+@{
+    #if DEBUG
+    var x = 1;
+    #else
+    var x = 2;
+    #endif
+}
+--------------------------------------------------------------------------------
+
+(compilation_unit
+  (razor_code_block
+    (preproc_if
+      (identifier)
+      (local_declaration_statement
+        (variable_declaration
+          (implicit_type)
+          (variable_declarator
+            (identifier)
+            (integer_literal))))
+      (preproc_else
+        (local_declaration_statement
+          (variable_declaration
+            (implicit_type)
+            (variable_declarator
+              (identifier)
+              (integer_literal))))))))
+
+================================================================================
+Preprocessor if-elif-else
+================================================================================
+@{
+    #if DEBUG
+    var x = 1;
+    #elif RELEASE
+    var x = 2;
+    #else
+    var x = 3;
+    #endif
+}
+--------------------------------------------------------------------------------
+
+(compilation_unit
+  (razor_code_block
+    (preproc_if
+      (identifier)
+      (local_declaration_statement
+        (variable_declaration
+          (implicit_type)
+          (variable_declarator
+            (identifier)
+            (integer_literal))))
+      (preproc_elif
+        (identifier)
+        (local_declaration_statement
+          (variable_declaration
+            (implicit_type)
+            (variable_declarator
+              (identifier)
+              (integer_literal))))
+        (preproc_else
+          (local_declaration_statement
+            (variable_declaration
+              (implicit_type)
+              (variable_declarator
+                (identifier)
+                (integer_literal)))))))))

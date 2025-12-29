@@ -280,7 +280,6 @@ Implicit expression with space before dot terminates expression
 (compilation_unit
   (razor_implicit_expression
     (identifier))
-  (text)
   (text))
 
 ================================================================================
@@ -292,7 +291,6 @@ Implicit expression with space after dot terminates expression
 (compilation_unit
   (razor_implicit_expression
     (identifier))
-  (text)
   (text))
 
 ================================================================================
@@ -328,6 +326,132 @@ Implicit expression with space before conditional access terminates
 (compilation_unit
   (razor_implicit_expression
     (identifier))
-  (text)
-  (text)
   (text))
+
+================================================================================
+Null-forgiveness operator
+================================================================================
+@val!.Name
+--------------------------------------------------------------------------------
+
+(compilation_unit
+  (razor_implicit_expression
+    (member_access_expression
+      (postfix_unary_expression
+        (identifier))
+      (identifier))))
+
+================================================================================
+Null-forgiveness with indexer
+================================================================================
+@val![0]
+--------------------------------------------------------------------------------
+
+(compilation_unit
+  (razor_implicit_expression
+    (element_access_expression
+      (postfix_unary_expression
+        (identifier))
+      (integer_literal))))
+
+================================================================================
+Null-forgiveness chained with conditional access
+================================================================================
+@val!?.bar
+--------------------------------------------------------------------------------
+
+(compilation_unit
+  (razor_implicit_expression
+    (conditional_access_expression
+      (postfix_unary_expression
+        (identifier))
+      (identifier))))
+
+================================================================================
+Chained null-forgiveness operators
+================================================================================
+@val!.Name!.Length
+--------------------------------------------------------------------------------
+
+(compilation_unit
+  (razor_implicit_expression
+    (member_access_expression
+      (postfix_unary_expression
+        (member_access_expression
+          (postfix_unary_expression
+            (identifier))
+          (identifier)))
+      (identifier))))
+
+================================================================================
+Null-conditional indexer
+================================================================================
+@val?[0]
+--------------------------------------------------------------------------------
+
+(compilation_unit
+  (razor_implicit_expression
+    (conditional_access_expression
+      (identifier)
+      (integer_literal))))
+
+================================================================================
+Null-conditional indexer with member access after
+================================================================================
+@val?[0].Name
+--------------------------------------------------------------------------------
+
+(compilation_unit
+  (razor_implicit_expression
+    (member_access_expression
+      (conditional_access_expression
+        (identifier)
+        (integer_literal))
+      (identifier))))
+
+================================================================================
+Chained null-conditional indexers
+================================================================================
+@val?[0]?[1]
+--------------------------------------------------------------------------------
+
+(compilation_unit
+  (razor_implicit_expression
+    (conditional_access_expression
+      (conditional_access_expression
+        (identifier)
+        (integer_literal))
+      (integer_literal))))
+
+================================================================================
+Mixed null-conditional member and indexer access
+================================================================================
+@val?.Items?[0]
+--------------------------------------------------------------------------------
+
+(compilation_unit
+  (razor_implicit_expression
+    (conditional_access_expression
+      (conditional_access_expression
+        (identifier)
+        (identifier))
+      (integer_literal))))
+
+================================================================================
+Complex chained operators
+================================================================================
+@val!.Name![0]!?.Bar
+--------------------------------------------------------------------------------
+
+(compilation_unit
+  (razor_implicit_expression
+    (conditional_access_expression
+      (postfix_unary_expression
+        (element_access_expression
+          (postfix_unary_expression
+            (member_access_expression
+              (postfix_unary_expression
+                (identifier))
+              (identifier)))
+          (integer_literal)))
+      (identifier))))

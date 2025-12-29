@@ -157,7 +157,20 @@ Typeparam directive
 
 (compilation_unit
   (razor_typeparam_directive
-    (identifier)))
+    name: (identifier)))
+
+================================================================================
+Typeparam directive with constraint
+================================================================================
+@typeparam TItem where TItem : class
+--------------------------------------------------------------------------------
+
+(compilation_unit
+  (razor_typeparam_directive
+    name: (identifier)
+    constraint: (type_parameter_constraints_clause
+      (identifier)
+      (type_parameter_constraint))))
 
 ================================================================================
 Preservewhitespace directive
