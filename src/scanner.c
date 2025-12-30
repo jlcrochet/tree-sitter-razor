@@ -2,6 +2,8 @@
 #include "tree_sitter/array.h"
 #include "tree_sitter/parser.h"
 #include <stdint.h>
+#include <string.h>
+#include <stdio.h>
 #include "../tree-sitter-c-sharp/src/scanner.c"
 
 // =============================================================================
@@ -17,25 +19,46 @@ enum RazorTokenType {
     TEXT_WITH_LITERAL_AT = CSHARP_TOKEN_COUNT,  // Text containing @ preceded by word char (e.g., email)
     HTML_TEXT_CONTENT,       // HTML text content, aware of else/catch/finally keywords
     // Context-aware tokens for tracking C# vs HTML mode
-    CSHARP_CODE_BLOCK_START, // @{ - enters C# brace context
-    CSHARP_EXPLICIT_EXPR_START, // @( - enters C# paren context
-    RAZOR_BLOCK_OPEN,        // { after Razor statement - enters C# context
-    CSHARP_CONTEXT_CLOSE,    // } or ) that exits C# context
-    CSHARP_COMMENT,          // /* */ or // comment, only valid in C# context
-    PREPROC_DIRECTIVE_START, // # at start of preprocessor directive, only valid in C# context
-    // Script, style, title, textarea content
-    SCRIPT_CONTENT,          // Raw content inside <script> tags
-    STYLE_CONTENT,           // Raw content inside <style> tags
-    TITLE_CONTENT,           // Raw content inside <title> tags
-    TEXTAREA_CONTENT,        // Raw content inside <textarea> tags
+    CSHARP_CODE_BLOCK_START,    // @{
+    CSHARP_EXPLICIT_EXPR_START, // @(
+    RAZOR_BLOCK_OPEN,           // { after Razor statement
+    CSHARP_CONTEXT_CLOSE,       // } or ) that exits C# context
+    CSHARP_COMMENT,
+    // Context-aware preprocessor directives (only valid in C# context)
+    // Note: #if/#else/#elif/#endif are left to C#'s grammar
+    PREPROC_REGION,
+    PREPROC_ENDREGION,
+    PREPROC_LINE,
+    PREPROC_PRAGMA,
+    PREPROC_NULLABLE,
+    PREPROC_ERROR,
+    PREPROC_WARNING,
+    PREPROC_DEFINE,
+    PREPROC_UNDEF,
+    PREPROC_DIRECTIVE,  // Fallback for unknown directives
+    // Raw text content for special elements
+    SCRIPT_CONTENT,
+    STYLE_CONTENT,
+    TITLE_CONTENT,
+    TEXTAREA_CONTENT,
     // Implicit expression terminator
-    IMPLICIT_EXPR_END,       // Zero-width token that matches when expression should end
+    IMPLICIT_EXPR_END,
     // @ in Razor block context
-    RAZOR_BLOCK_AT,          // @ inside a Razor block - starts nested Razor expression
-    // Using directive lookahead
-    USING_NOT_ALIAS,         // Zero-width token that matches when NOT followed by = or .
-    // Razor comment start in C# context
-    RAZOR_COMMENT_START,     // @* - start of Razor comment, beats C# @identifier
+    RAZOR_BLOCK_AT,
+    // Using directive lookahead (NOT followed by = or .)
+    USING_NOT_ALIAS,
+    // Razor comment start in C# context (@*)
+    RAZOR_COMMENT_START,
+    // Context-aware Razor comment (not valid inside HTML tags)
+    RAZOR_COMMENT,
+    // HTML tag context tracking
+    HTML_TAG_OPEN,      // < that starts a tag
+    HTML_END_TAG_OPEN,  // </ that starts an end tag
+    HTML_TAG_CLOSE,     // > that ends a tag
+    // HTML comment
+    HTML_COMMENT,
+    // DOCTYPE declaration
+    DOCTYPE,
 };
 
 // =============================================================================
@@ -47,6 +70,7 @@ typedef enum {
     CONTEXT_HTML = 0,
     CONTEXT_CSHARP_BRACE = 1,   // Inside @{ } or { } block
     CONTEXT_CSHARP_PAREN = 2,   // Inside @( ) expression
+    CONTEXT_HTML_TAG = 3,       // Inside an HTML tag (between < and >)
 } ContextType;
 
 typedef struct {
@@ -64,7 +88,14 @@ static inline void razor_skip(TSLexer *lexer) { lexer->advance(lexer, true); }
 
 // Check if scanner is currently in C# context
 static inline bool in_csharp_context(RazorScanner *scanner) {
-    return scanner->context_stack.size > 0 && *array_back(&scanner->context_stack) != CONTEXT_HTML;
+    if (scanner->context_stack.size == 0) return false;
+    ContextType top = *array_back(&scanner->context_stack);
+    return top == CONTEXT_CSHARP_BRACE || top == CONTEXT_CSHARP_PAREN;
+}
+
+// Check if scanner is currently inside an HTML tag (between < and >)
+static inline bool in_html_tag_context(RazorScanner *scanner) {
+    return scanner->context_stack.size > 0 && *array_back(&scanner->context_stack) == CONTEXT_HTML_TAG;
 }
 
 // Check if character is a Unicode letter.
@@ -370,70 +401,62 @@ void tree_sitter_razor_external_scanner_deserialize(void *payload, const char *b
 bool tree_sitter_razor_external_scanner_scan(void *payload, TSLexer *lexer, const bool *valid_symbols) {
     RazorScanner *scanner = (RazorScanner *)payload;
 
-    // -------------------------------------------------------------------------
-    // @{ or @( - enter C# context
-    // This must be checked EARLY because the literal '@' token in the grammar
-    // can match first if we don't catch @{ and @( here.
-    // IMPORTANT: We must skip whitespace because tree-sitter only calls the
-    // external scanner ONCE at each position. If we don't skip whitespace,
-    // the main lexer will skip it and match '@' before we get a chance.
-    // -------------------------------------------------------------------------
-    if (valid_symbols[CSHARP_CODE_BLOCK_START] || valid_symbols[CSHARP_EXPLICIT_EXPR_START]) {
-        // Skip whitespace to find the @ token
+#ifdef DEBUG_SCANNER
+    fprintf(stderr, "SCAN: lookahead='%c'(0x%02x) TITLE=%d TEXTAREA=%d TAG_OPEN=%d TAG_CLOSE=%d END_TAG=%d ctx=%d\n",
+            lexer->lookahead > 31 ? lexer->lookahead : '?', lexer->lookahead,
+            valid_symbols[TITLE_CONTENT], valid_symbols[TEXTAREA_CONTENT],
+            valid_symbols[HTML_TAG_OPEN], valid_symbols[HTML_TAG_CLOSE], valid_symbols[HTML_END_TAG_OPEN],
+            (int)scanner->context_stack.size);
+#endif
+
+    // EARLY CHECK: If RAZOR_BLOCK_AT is valid and we're in C# context, try to match @ NOW
+    // This must happen before any other processing to beat the main lexer's @ token
+    // But we must NOT match @: @@ or @* which have their own handlers
+    if (valid_symbols[RAZOR_BLOCK_AT] && in_csharp_context(scanner)) {
+        // Skip whitespace to find @
         while (is_whitespace(lexer->lookahead)) {
             razor_skip(lexer);
         }
         if (lexer->lookahead == '@') {
+            // Peek ahead to check what follows @
+            // We need to consume @ to see what's next, then mark_end at @ position if it's a match
             razor_advance(lexer);  // consume @
-            if (valid_symbols[CSHARP_CODE_BLOCK_START] && lexer->lookahead == '{') {
-                razor_advance(lexer);
-                array_push(&scanner->context_stack, CONTEXT_CSHARP_BRACE);
-                lexer->result_symbol = CSHARP_CODE_BLOCK_START;
+            int32_t after_at = lexer->lookahead;
+
+            // Only match RAZOR_BLOCK_AT if NOT followed by : @ or *
+            // These sequences (@: @@ @*) have their own handlers
+            if (after_at != ':' && after_at != '@' && after_at != '*') {
+                lexer->mark_end(lexer);  // End token at position after @
+                lexer->result_symbol = RAZOR_BLOCK_AT;
                 return true;
             }
-            if (valid_symbols[CSHARP_EXPLICIT_EXPR_START] && lexer->lookahead == '(') {
-                razor_advance(lexer);
-                array_push(&scanner->context_stack, CONTEXT_CSHARP_PAREN);
-                lexer->result_symbol = CSHARP_EXPLICIT_EXPR_START;
+
+            // For @* - we need to handle it here since we already consumed @
+            if (after_at == '*' && valid_symbols[RAZOR_COMMENT_START]) {
+                razor_advance(lexer);  // consume *
+                lexer->mark_end(lexer);
+                lexer->result_symbol = RAZOR_COMMENT_START;
                 return true;
             }
-            // @ followed by something other than { or (
-            // Return false - tree-sitter will reset and try other tokens (like literal @)
+
+            // For @: or @@ - return false and let the parser try different alternatives
+            // This means the parse will fail for this path, which is correct because
+            // @: should only appear in text literal context
             return false;
         }
-        // Not @ after whitespace - fall through to try other tokens
-    }
-
-    // -------------------------------------------------------------------------
-    // Using directive lookahead - matches when NOT followed by = or .
-    // This is a zero-width token used to disambiguate:
-    // - @using Namespace (simple identifier)
-    // - @using Namespace.SubNamespace (qualified name, has .)
-    // - @using Alias = Type (alias form, has =)
-    // -------------------------------------------------------------------------
-
-    if (valid_symbols[USING_NOT_ALIAS]) {
-        // Skip whitespace
-        while (is_whitespace(lexer->lookahead)) {
-            razor_skip(lexer);
-        }
-
-        // Match if NOT followed by = or . (so alias and qualified_name can match)
-        if (lexer->lookahead != '=' && lexer->lookahead != '.') {
-            lexer->result_symbol = USING_NOT_ALIAS;
-            return true;
-        }
-        // Followed by = or . - don't match, let alias form or qualified_name be tried
-        return false;
     }
 
     // -------------------------------------------------------------------------
     // Implicit expression terminator - matches when expression should end
-    // This is a zero-width token that prevents whitespace from being skipped
+    // This MUST be checked FIRST before any whitespace skipping happens!
+    // This is a zero-width token that detects when implicit expression ends
     // -------------------------------------------------------------------------
 
-    // Don't match IMPLICIT_EXPR_END if RAZOR_BLOCK_OPEN is also valid
-    // In that case, we're expecting a block, not ending an expression
+    // Don't match IMPLICIT_EXPR_END if:
+    // - RAZOR_BLOCK_OPEN is also valid (expecting a block - use block, not expression end)
+    // Note: We allow IMPLICIT_EXPR_END inside C# brace context for nested @expressions
+    // like @{ @item } - the @item is a _nested_razor_implicit_expression which needs
+    // IMPLICIT_EXPR_END to terminate
     if (valid_symbols[IMPLICIT_EXPR_END] && !valid_symbols[RAZOR_BLOCK_OPEN]) {
         // The expression should end if we see:
         // - Whitespace
@@ -446,7 +469,7 @@ bool tree_sitter_razor_external_scanner_scan(void *payload, TSLexer *lexer, cons
         if (is_whitespace(c) ||
             c == '<' || c == '@' || c == '"' || c == '\'' ||
             c == '>' || c == '}' || c == ')' || c == ']' ||
-            c == ',' || c == ';' || c == ':' ||
+            c == ',' || c == ';' || c == ':' || c == '&' ||
             lexer->eof(lexer)) {
             // Zero-width token - don't advance
             lexer->result_symbol = IMPLICIT_EXPR_END;
@@ -465,47 +488,451 @@ bool tree_sitter_razor_external_scanner_scan(void *payload, TSLexer *lexer, cons
                 return false;
             }
             // Otherwise, dot not followed by identifier - end expression here
-            // (Don't consume the dot - mark_end was set before we advanced)
             lexer->result_symbol = IMPLICIT_EXPR_END;
             return true;
         }
 
+        // For ? we need to check if it's conditional access (?. or ?[)
         if (c == '?') {
-            // Check if this is ?. followed by identifier OR ?[ for conditional indexer
             lexer->mark_end(lexer);
-            razor_advance(lexer);  // consume ?
-            if (lexer->lookahead == '[') {
-                // ?[ - conditional element access, let grammar handle it
+            razor_advance(lexer);
+            int32_t after_q = lexer->lookahead;
+            if (after_q == '.' || after_q == '[') {
+                // Conditional access - let grammar handle
                 return false;
             }
-            if (lexer->lookahead == '.') {
-                razor_advance(lexer);  // consume .
-                int32_t after_dot = lexer->lookahead;
-                // If followed by identifier start, let grammar handle conditional access
-                if (is_unicode_letter(after_dot) || after_dot == '_') {
-                    return false;
-                }
-            }
-            // Not ?. or ?[ or not followed by identifier - end expression
+            // Just ? - end expression
             lexer->result_symbol = IMPLICIT_EXPR_END;
             return true;
         }
 
-        if (c == '(' || c == '[') {
-            // These continue the expression (invocation/indexer)
+        // Other characters that could be continuations are handled by grammar
+        // via token.immediate rules - don't end expression, let grammar decide
+    }
+
+    // -------------------------------------------------------------------------
+    // @{ or @( or @* - special @ tokens that need early handling
+    // This must be checked EARLY because the literal '@' token in the grammar
+    // can match first if we don't catch these here.
+    // IMPORTANT: We must skip whitespace because tree-sitter only calls the
+    // external scanner ONCE at each position. If we don't skip whitespace,
+    // the main lexer will skip it and match '@' before we get a chance.
+    // -------------------------------------------------------------------------
+    bool check_at_tokens = valid_symbols[CSHARP_CODE_BLOCK_START] ||
+                           valid_symbols[CSHARP_EXPLICIT_EXPR_START] ||
+                           valid_symbols[RAZOR_COMMENT];
+
+    if (check_at_tokens) {
+        // Skip whitespace to find the @ token
+        while (is_whitespace(lexer->lookahead)) {
+            razor_skip(lexer);
+        }
+        if (lexer->lookahead == '@') {
+            razor_advance(lexer);  // consume @
+
+            // @* - Razor comment (only if not inside HTML tag)
+            if (valid_symbols[RAZOR_COMMENT] && !in_html_tag_context(scanner) && lexer->lookahead == '*') {
+                razor_advance(lexer);  // consume *
+                // Match comment content until *@
+                while (!lexer->eof(lexer)) {
+                    if (lexer->lookahead == '*') {
+                        razor_advance(lexer);
+                        if (lexer->lookahead == '@') {
+                            razor_advance(lexer);
+                            lexer->mark_end(lexer);  // Mark end of token
+                            lexer->result_symbol = RAZOR_COMMENT;
+                            return true;
+                        }
+                    } else {
+                        razor_advance(lexer);
+                    }
+                }
+                // Unterminated comment - still return it
+                lexer->mark_end(lexer);  // Mark end of token
+                lexer->result_symbol = RAZOR_COMMENT;
+                return true;
+            }
+
+            if (valid_symbols[CSHARP_CODE_BLOCK_START] && lexer->lookahead == '{') {
+                razor_advance(lexer);
+                lexer->mark_end(lexer);  // Mark end of token
+                array_push(&scanner->context_stack, CONTEXT_CSHARP_BRACE);
+                lexer->result_symbol = CSHARP_CODE_BLOCK_START;
+                return true;
+            }
+            if (valid_symbols[CSHARP_EXPLICIT_EXPR_START] && lexer->lookahead == '(') {
+                razor_advance(lexer);
+                lexer->mark_end(lexer);  // Mark end of token
+                array_push(&scanner->context_stack, CONTEXT_CSHARP_PAREN);
+                lexer->result_symbol = CSHARP_EXPLICIT_EXPR_START;
+                return true;
+            }
+            // @ followed by something other than {, (, or *
+            // Don't consume - let tree-sitter try other tokens (like literal @)
+            // mark_end was called before consuming @, so returning false will reset position
+            return false;
+        }
+        // Not @ after whitespace - fall through to try other tokens
+    }
+
+    // -------------------------------------------------------------------------
+    // Using directive lookahead - matches when NOT followed by = or .
+    // This is a zero-width token used to disambiguate:
+    // - @using Namespace (simple identifier)
+    // - @using Namespace.SubNamespace (qualified name, has .)
+    // - @using Alias = Type (alias form, has =)
+    // -------------------------------------------------------------------------
+
+    // USING_NOT_ALIAS should only match at top level, not inside code blocks
+    // Using directives can only appear at the top of the file
+    if (valid_symbols[USING_NOT_ALIAS] && scanner->context_stack.size == 0) {
+        // Skip whitespace
+        while (is_whitespace(lexer->lookahead)) {
+            razor_skip(lexer);
+        }
+
+        // Match if NOT followed by = or . (so alias and qualified_name can match)
+        if (lexer->lookahead != '=' && lexer->lookahead != '.') {
+            lexer->result_symbol = USING_NOT_ALIAS;
+            return true;
+        }
+        // Followed by = or . - don't match, let alias form or qualified_name be tried
+        return false;
+    }
+
+    // -------------------------------------------------------------------------
+    // Razor-specific tokens (HTML context only)
+    // -------------------------------------------------------------------------
+
+    // -------------------------------------------------------------------------
+    // Script, style, title, textarea content - raw text until closing tag
+    // These handlers MUST come before HTML tag handling because when both
+    // content and end tag tokens are valid, we need to check if we're at
+    // the correct closing tag. If not, consume the incorrect tag as content.
+    // -------------------------------------------------------------------------
+
+    // Script content - scan until </script>
+    // IMPORTANT: Only process if HTML_END_TAG_OPEN is NOT also valid at '<'
+    // When both are valid and we're at '</script>', we skip content handling
+    // entirely so the HTML tag handler below can match the end tag.
+    if (valid_symbols[SCRIPT_CONTENT]) {
+        // If we're at '<' and end tag is also valid, check if it's the closing tag
+        if (lexer->lookahead == '<' && valid_symbols[HTML_END_TAG_OPEN]) {
+            // Don't handle content here - fall through to HTML tag handling
+            // If it's not the closing tag, we'll come back to content via grammar
+        } else {
+            // Either not at '<' or end tag isn't valid - scan content normally
+            bool has_content = false;
+            while (!lexer->eof(lexer)) {
+                if (lexer->lookahead == '<') {
+                    lexer->mark_end(lexer);
+                    razor_advance(lexer);
+                    if (lexer->lookahead == '/') {
+                        razor_advance(lexer);
+                        const char *tag = "script";
+                        int i = 0;
+                        bool matches = true;
+                        while (tag[i] && matches) {
+                            int32_t c = lexer->lookahead;
+                            if (c != tag[i] && c != (tag[i] - 32)) {
+                                matches = false;
+                            } else {
+                                razor_advance(lexer);
+                                i++;
+                            }
+                        }
+                        if (matches && i == 6 && is_end_tag_terminator(lexer->lookahead)) {
+                            // Found closing tag - return content so far
+                            break;
+                        }
+                    }
+                    // Not closing tag - include as content
+                    has_content = true;
+                    lexer->mark_end(lexer);
+                } else {
+                    razor_advance(lexer);
+                    has_content = true;
+                    lexer->mark_end(lexer);
+                }
+            }
+            if (has_content) {
+                lexer->result_symbol = SCRIPT_CONTENT;
+                return true;
+            }
+            return false;
+        }
+    }
+
+    // Style content - scan until </style>
+    // IMPORTANT: Only process if HTML_END_TAG_OPEN is NOT also valid at '<'
+    // When both are valid and we're at '</style>', we skip content handling
+    // entirely so the HTML tag handler below can match the end tag.
+    if (valid_symbols[STYLE_CONTENT]) {
+        // If we're at '<' and end tag is also valid, check if it's the closing tag
+        if (lexer->lookahead == '<' && valid_symbols[HTML_END_TAG_OPEN]) {
+            // Don't handle content here - fall through to HTML tag handling
+            // If it's not the closing tag, we'll come back to content via grammar
+        } else {
+            // Either not at '<' or end tag isn't valid - scan content normally
+            bool has_content = false;
+            while (!lexer->eof(lexer)) {
+                if (lexer->lookahead == '<') {
+                    lexer->mark_end(lexer);
+                    razor_advance(lexer);
+                    if (lexer->lookahead == '/') {
+                        razor_advance(lexer);
+                        const char *tag = "style";
+                        int i = 0;
+                        bool matches = true;
+                        while (tag[i] && matches) {
+                            int32_t c = lexer->lookahead;
+                            if (c != tag[i] && c != (tag[i] - 32)) {
+                                matches = false;
+                            } else {
+                                razor_advance(lexer);
+                                i++;
+                            }
+                        }
+                        if (matches && i == 5 && is_end_tag_terminator(lexer->lookahead)) {
+                            // Found closing tag - return content so far
+                            break;
+                        }
+                    }
+                    // Not closing tag - include as content
+                    has_content = true;
+                    lexer->mark_end(lexer);
+                } else {
+                    razor_advance(lexer);
+                    has_content = true;
+                    lexer->mark_end(lexer);
+                }
+            }
+            if (has_content) {
+                lexer->result_symbol = STYLE_CONTENT;
+                return true;
+            }
+            return false;
+        }
+    }
+
+    // Title content - scan until </title>
+    // IMPORTANT: Only process if HTML_END_TAG_OPEN is NOT also valid at '<'
+    // When both are valid and we're at '</title>', we skip content handling
+    // entirely so the HTML tag handler below can match the end tag.
+    if (valid_symbols[TITLE_CONTENT]) {
+        // If we're at '<' and end tag is also valid, check if it's the closing tag
+        if (lexer->lookahead == '<' && valid_symbols[HTML_END_TAG_OPEN]) {
+            // Don't handle content here - fall through to HTML tag handling
+            // If it's not the closing tag, we'll come back to content via grammar
+        } else {
+            // Either not at '<' or end tag isn't valid - scan content normally
+            bool has_content = false;
+            while (!lexer->eof(lexer)) {
+                if (lexer->lookahead == '<') {
+                    lexer->mark_end(lexer);
+                    razor_advance(lexer);
+                    if (lexer->lookahead == '/') {
+                        razor_advance(lexer);
+                        const char *tag = "title";
+                        int i = 0;
+                        bool matches = true;
+                        while (tag[i] && matches) {
+                            int32_t c = lexer->lookahead;
+                            if (c != tag[i] && c != (tag[i] - 32)) {
+                                matches = false;
+                            } else {
+                                razor_advance(lexer);
+                                i++;
+                            }
+                        }
+                        if (matches && i == 5 && is_end_tag_terminator(lexer->lookahead)) {
+                            // Found closing tag - return content so far
+                            break;
+                        }
+                    }
+                    // Not closing tag - include as content
+                    has_content = true;
+                    lexer->mark_end(lexer);
+                } else {
+                    razor_advance(lexer);
+                    has_content = true;
+                    lexer->mark_end(lexer);
+                }
+            }
+            if (has_content) {
+                lexer->result_symbol = TITLE_CONTENT;
+                return true;
+            }
+            return false;
+        }
+    }
+
+    // Textarea content - scan until </textarea>
+    // Same approach as title: if at '<' with end tag valid, just fall through.
+    // The HTML tag handler will try to match </textarea>. If it's not the right
+    // tag, grammar error recovery will handle it.
+    if (valid_symbols[TEXTAREA_CONTENT]) {
+        // If we're at '<' and end tag is also valid, fall through
+        if (lexer->lookahead == '<' && valid_symbols[HTML_END_TAG_OPEN]) {
+            // Don't handle content here - fall through to HTML tag handling
+        } else {
+            // Either not at '<' or end tag isn't valid - scan content normally
+            bool has_content = false;
+            while (!lexer->eof(lexer)) {
+                if (lexer->lookahead == '<') {
+                    lexer->mark_end(lexer);
+                    razor_advance(lexer);
+                    if (lexer->lookahead == '/') {
+                        razor_advance(lexer);
+                        const char *tag = "textarea";
+                        int i = 0;
+                        bool matches = true;
+                        while (tag[i] && matches) {
+                            int32_t c = lexer->lookahead;
+                            if (c != tag[i] && c != (tag[i] - 32)) {
+                                matches = false;
+                            } else {
+                                razor_advance(lexer);
+                                i++;
+                            }
+                        }
+                        if (matches && i == 8 && is_end_tag_terminator(lexer->lookahead)) {
+                            // Found closing tag - return content so far
+                            break;
+                        }
+                    }
+                    // Not closing tag - include as content
+                    has_content = true;
+                    lexer->mark_end(lexer);
+                } else {
+                    razor_advance(lexer);
+                    has_content = true;
+                    lexer->mark_end(lexer);
+                }
+            }
+            if (has_content) {
+                lexer->result_symbol = TEXTAREA_CONTENT;
+                return true;
+            }
+            return false;
+        }
+    }
+
+    // -------------------------------------------------------------------------
+    // HTML tag context tracking
+    // -------------------------------------------------------------------------
+
+    // HTML tag opening tokens - handle <, </, <!, <!--, and <!DOCTYPE
+    if ((valid_symbols[HTML_TAG_OPEN] || valid_symbols[HTML_END_TAG_OPEN] ||
+         valid_symbols[HTML_COMMENT] || valid_symbols[DOCTYPE]) && lexer->lookahead == '<') {
+        razor_advance(lexer);  // consume <
+
+        if (lexer->lookahead == '/' && valid_symbols[HTML_END_TAG_OPEN]) {
+            // </ or </! - end tag open
+            razor_advance(lexer);  // consume /
+            if (lexer->lookahead == '!') {
+                razor_advance(lexer);  // consume ! for opt-out end tag
+            }
+            lexer->mark_end(lexer);  // Mark end of token
+            array_push(&scanner->context_stack, CONTEXT_HTML_TAG);
+            lexer->result_symbol = HTML_END_TAG_OPEN;
+            return true;
+        }
+
+        if (lexer->lookahead == '!') {
+            // Could be <!-- or <!DOCTYPE or <!element (opt-out)
+            razor_advance(lexer);  // consume !
+            if (lexer->lookahead == '-' && valid_symbols[HTML_COMMENT]) {
+                // <!-- ... --> HTML comment
+                razor_advance(lexer);  // consume first -
+                if (lexer->lookahead == '-') {
+                    razor_advance(lexer);  // consume second -
+                    // Now scan for -->
+                    while (!lexer->eof(lexer)) {
+                        if (lexer->lookahead == '-') {
+                            razor_advance(lexer);
+                            if (lexer->lookahead == '-') {
+                                razor_advance(lexer);
+                                if (lexer->lookahead == '>') {
+                                    razor_advance(lexer);
+                                    lexer->mark_end(lexer);  // Mark end of token
+                                    // Don't push HTML_TAG context for comments
+                                    lexer->result_symbol = HTML_COMMENT;
+                                    return true;
+                                }
+                            }
+                        } else {
+                            razor_advance(lexer);
+                        }
+                    }
+                    // Unterminated comment - still return it
+                    lexer->mark_end(lexer);  // Mark end of token
+                    lexer->result_symbol = HTML_COMMENT;
+                    return true;
+                }
+                // <!- but not <!-- - this is malformed, return false
+                return false;
+            }
+            if ((lexer->lookahead == 'd' || lexer->lookahead == 'D') && valid_symbols[DOCTYPE]) {
+                // <!DOCTYPE ...> - match the entire doctype declaration
+                // Pattern: <!DOCTYPE[^>]*>
+                razor_advance(lexer);  // consume d/D
+                // Check for "octype" (case insensitive)
+                const char *expected = "octype";
+                bool matched = true;
+                for (int i = 0; expected[i] && matched; i++) {
+                    if (lexer->lookahead != expected[i] &&
+                        lexer->lookahead != expected[i] - 32 &&
+                        lexer->lookahead != expected[i] + 32) {
+                        matched = false;
+                    } else {
+                        razor_advance(lexer);
+                    }
+                }
+                if (matched) {
+                    // Consume everything until >
+                    while (!lexer->eof(lexer) && lexer->lookahead != '>') {
+                        razor_advance(lexer);
+                    }
+                    if (lexer->lookahead == '>') {
+                        razor_advance(lexer);
+                    }
+                    lexer->mark_end(lexer);  // Mark end of token
+                    lexer->result_symbol = DOCTYPE;
+                    return true;
+                }
+                // Not DOCTYPE, fall through (might be <!Div for opt-out)
+            }
+            // <!element (opt-out) - match <! as HTML_TAG_OPEN
+            if (valid_symbols[HTML_TAG_OPEN]) {
+                lexer->mark_end(lexer);  // Mark end of token
+                array_push(&scanner->context_stack, CONTEXT_HTML_TAG);
+                lexer->result_symbol = HTML_TAG_OPEN;
+                return true;
+            }
             return false;
         }
 
-        if (c == '!') {
-            // Null-forgiveness operator - continues the expression
-            // Let grammar handle it with token.immediate('!')
-            return false;
+        if (valid_symbols[HTML_TAG_OPEN]) {
+            // Regular < for start tag
+            lexer->mark_end(lexer);  // Mark end of token
+            array_push(&scanner->context_stack, CONTEXT_HTML_TAG);
+            lexer->result_symbol = HTML_TAG_OPEN;
+            return true;
         }
 
-        // Any other character - expression ends
-        // (This includes letters/digits which would be invalid after expression)
-        lexer->result_symbol = IMPLICIT_EXPR_END;
-        return true;
+        return false;
+    }
+
+    // > that ends an HTML tag - pop HTML_TAG context
+    if (valid_symbols[HTML_TAG_CLOSE] && in_html_tag_context(scanner)) {
+        if (lexer->lookahead == '>') {
+            razor_advance(lexer);
+            lexer->mark_end(lexer);  // Mark end of token
+            array_pop(&scanner->context_stack);
+            lexer->result_symbol = HTML_TAG_CLOSE;
+            return true;
+        }
     }
 
     // -------------------------------------------------------------------------
@@ -710,13 +1137,16 @@ bool tree_sitter_razor_external_scanner_scan(void *payload, TSLexer *lexer, cons
     // -------------------------------------------------------------------------
 
     // { in Razor block context (after @if, @for, etc.) - enters C# brace context
-    if (valid_symbols[RAZOR_BLOCK_OPEN]) {
+    // NOTE: Only check this if CSHARP_CONTEXT_CLOSE is NOT also valid.
+    // If both are valid, we need to fall through to check for } first.
+    if (valid_symbols[RAZOR_BLOCK_OPEN] && !valid_symbols[CSHARP_CONTEXT_CLOSE]) {
         // Skip C# whitespace
         while (is_whitespace(lexer->lookahead)) {
             razor_skip(lexer);
         }
         if (lexer->lookahead == '{') {
             razor_advance(lexer);
+            lexer->mark_end(lexer);  // Mark end of token
             array_push(&scanner->context_stack, CONTEXT_CSHARP_BRACE);
             lexer->result_symbol = RAZOR_BLOCK_OPEN;
             return true;
@@ -734,6 +1164,7 @@ bool tree_sitter_razor_external_scanner_scan(void *payload, TSLexer *lexer, cons
         if ((top == CONTEXT_CSHARP_BRACE && lexer->lookahead == '}') ||
             (top == CONTEXT_CSHARP_PAREN && lexer->lookahead == ')')) {
             razor_advance(lexer);
+            lexer->mark_end(lexer);  // Mark end of token
             array_pop(&scanner->context_stack);
             lexer->result_symbol = CSHARP_CONTEXT_CLOSE;
             return true;
@@ -741,7 +1172,7 @@ bool tree_sitter_razor_external_scanner_scan(void *payload, TSLexer *lexer, cons
     }
 
     // @ token handling in C# context - handles both @* (comment) and @ (Razor expression)
-    // Must be matched before C# verbatim identifier lexing can grab @identifier
+    // Note: RAZOR_BLOCK_AT is handled early above, this handles RAZOR_COMMENT_START primarily
     if ((valid_symbols[RAZOR_COMMENT_START] || valid_symbols[RAZOR_BLOCK_AT]) && in_csharp_context(scanner)) {
         // Skip C# whitespace first
         while (is_whitespace(lexer->lookahead)) {
@@ -754,6 +1185,7 @@ bool tree_sitter_razor_external_scanner_scan(void *payload, TSLexer *lexer, cons
             // @* - start of Razor comment
             if (valid_symbols[RAZOR_COMMENT_START] && lexer->lookahead == '*') {
                 razor_advance(lexer);    // Consume *
+                lexer->mark_end(lexer);  // Mark end of token
                 lexer->result_symbol = RAZOR_COMMENT_START;
                 return true;
             }
@@ -765,6 +1197,7 @@ bool tree_sitter_razor_external_scanner_scan(void *payload, TSLexer *lexer, cons
 
             // @ for nested Razor expressions/statements
             if (valid_symbols[RAZOR_BLOCK_AT]) {
+                lexer->mark_end(lexer);  // Mark end of token
                 lexer->result_symbol = RAZOR_BLOCK_AT;
                 return true;
             }
@@ -788,6 +1221,7 @@ bool tree_sitter_razor_external_scanner_scan(void *payload, TSLexer *lexer, cons
                 while (!lexer->eof(lexer) && lexer->lookahead != '\n' && lexer->lookahead != '\r') {
                     razor_advance(lexer);
                 }
+                lexer->mark_end(lexer);  // Mark end of token
                 lexer->result_symbol = CSHARP_COMMENT;
                 return true;
             } else if (lexer->lookahead == '*') {
@@ -798,6 +1232,7 @@ bool tree_sitter_razor_external_scanner_scan(void *payload, TSLexer *lexer, cons
                         razor_advance(lexer);
                         if (lexer->lookahead == '/') {
                             razor_advance(lexer);
+                            lexer->mark_end(lexer);  // Mark end of token
                             lexer->result_symbol = CSHARP_COMMENT;
                             return true;
                         }
@@ -806,6 +1241,7 @@ bool tree_sitter_razor_external_scanner_scan(void *payload, TSLexer *lexer, cons
                     }
                 }
                 // Unterminated comment - still return it
+                lexer->mark_end(lexer);  // Mark end of token
                 lexer->result_symbol = CSHARP_COMMENT;
                 return true;
             }
@@ -814,187 +1250,94 @@ bool tree_sitter_razor_external_scanner_scan(void *payload, TSLexer *lexer, cons
         }
     }
 
-    // C# preprocessor directive start - only valid when in C# context
-    // Just matches the # character; the rest of the directive is parsed by grammar rules
-    if (valid_symbols[PREPROC_DIRECTIVE_START] && in_csharp_context(scanner) && lexer->lookahead == '#') {
-        razor_advance(lexer);
-        lexer->result_symbol = PREPROC_DIRECTIVE_START;
-        return true;
-    }
+    // C# preprocessor directives - only valid when in C# context
+    // Match the full #keyword token (e.g., #region, #pragma)
+    // Note: #if/#else/#elif/#endif are handled by C#'s grammar, not here
+    if (in_csharp_context(scanner) && lexer->lookahead == '#') {
+        // Check which preproc tokens are valid
+        bool any_preproc_valid = valid_symbols[PREPROC_REGION] ||
+                                  valid_symbols[PREPROC_ENDREGION] ||
+                                  valid_symbols[PREPROC_LINE] ||
+                                  valid_symbols[PREPROC_PRAGMA] ||
+                                  valid_symbols[PREPROC_NULLABLE] ||
+                                  valid_symbols[PREPROC_ERROR] ||
+                                  valid_symbols[PREPROC_WARNING] ||
+                                  valid_symbols[PREPROC_DEFINE] ||
+                                  valid_symbols[PREPROC_UNDEF] ||
+                                  valid_symbols[PREPROC_DIRECTIVE];
 
-    // -------------------------------------------------------------------------
-    // Script, style, title, textarea content - raw text until closing tag
-    // -------------------------------------------------------------------------
+        if (any_preproc_valid) {
+            lexer->mark_end(lexer);
+            razor_advance(lexer);  // consume #
 
-    // Script content - scan until </script>
-    if (valid_symbols[SCRIPT_CONTENT]) {
-        bool has_content = false;
-
-        while (!lexer->eof(lexer)) {
-            if (lexer->lookahead == '<') {
-                lexer->mark_end(lexer);
+            // Skip optional whitespace between # and keyword
+            while (lexer->lookahead == ' ' || lexer->lookahead == '\t') {
                 razor_advance(lexer);
-                if (lexer->lookahead == '/') {
-                    razor_advance(lexer);
-                    // Check for 'script' (case insensitive)
-                    const char *tag = "script";
-                    int i = 0;
-                    bool matches = true;
-                    while (tag[i] && matches) {
-                        int32_t c = lexer->lookahead;
-                        if (c != tag[i] && c != (tag[i] - 32)) {
-                            matches = false;
-                        } else {
-                            razor_advance(lexer);
-                            i++;
-                        }
-                    }
-                    // Must match full tag name AND be followed by valid terminator
-                    if (matches && i == 6 && is_end_tag_terminator(lexer->lookahead)) {
-                        break;
-                    }
-                }
-                // Not </script> with valid terminator, continue
-                has_content = true;
-                lexer->mark_end(lexer);
-            } else {
-                razor_advance(lexer);
-                has_content = true;
-                lexer->mark_end(lexer);
             }
-        }
 
-        if (has_content) {
-            lexer->result_symbol = SCRIPT_CONTENT;
-            return true;
-        }
-        return false;
-    }
-
-    // Style content - scan until </style>
-    if (valid_symbols[STYLE_CONTENT]) {
-        bool has_content = false;
-
-        while (!lexer->eof(lexer)) {
-            if (lexer->lookahead == '<') {
-                lexer->mark_end(lexer);
+            // Read the keyword
+            char keyword[16] = {0};
+            int keyword_len = 0;
+            while (keyword_len < 15 && is_identifier_char(lexer->lookahead)) {
+                keyword[keyword_len++] = (char)lexer->lookahead;
                 razor_advance(lexer);
-                if (lexer->lookahead == '/') {
-                    razor_advance(lexer);
-                    const char *tag = "style";
-                    int i = 0;
-                    bool matches = true;
-                    while (tag[i] && matches) {
-                        int32_t c = lexer->lookahead;
-                        if (c != tag[i] && c != (tag[i] - 32)) {
-                            matches = false;
-                        } else {
-                            razor_advance(lexer);
-                            i++;
-                        }
-                    }
-                    if (matches && i == 5 && is_end_tag_terminator(lexer->lookahead)) {
-                        break;
-                    }
-                }
-                has_content = true;
-                lexer->mark_end(lexer);
-            } else {
-                razor_advance(lexer);
-                has_content = true;
-                lexer->mark_end(lexer);
             }
-        }
+            keyword[keyword_len] = '\0';
 
-        if (has_content) {
-            lexer->result_symbol = STYLE_CONTENT;
-            return true;
-        }
-        return false;
-    }
+            // Mark end position after reading the full "#keyword" token
+            lexer->mark_end(lexer);
 
-    // Title content - scan until </title>
-    if (valid_symbols[TITLE_CONTENT]) {
-        bool has_content = false;
-
-        while (!lexer->eof(lexer)) {
-            if (lexer->lookahead == '<') {
-                lexer->mark_end(lexer);
-                razor_advance(lexer);
-                if (lexer->lookahead == '/') {
-                    razor_advance(lexer);
-                    const char *tag = "title";
-                    int i = 0;
-                    bool matches = true;
-                    while (tag[i] && matches) {
-                        int32_t c = lexer->lookahead;
-                        if (c != tag[i] && c != (tag[i] - 32)) {
-                            matches = false;
-                        } else {
-                            razor_advance(lexer);
-                            i++;
-                        }
-                    }
-                    if (matches && i == 5 && is_end_tag_terminator(lexer->lookahead)) {
-                        break;
-                    }
-                }
-                has_content = true;
-                lexer->mark_end(lexer);
-            } else {
-                razor_advance(lexer);
-                has_content = true;
-                lexer->mark_end(lexer);
+            // Match keywords to tokens (excluding #if/#else/#elif/#endif)
+            if (valid_symbols[PREPROC_REGION] && strcmp(keyword, "region") == 0) {
+                lexer->result_symbol = PREPROC_REGION;
+                return true;
             }
-        }
-
-        if (has_content) {
-            lexer->result_symbol = TITLE_CONTENT;
-            return true;
-        }
-        return false;
-    }
-
-    // Textarea content - scan until </textarea>
-    if (valid_symbols[TEXTAREA_CONTENT]) {
-        bool has_content = false;
-
-        while (!lexer->eof(lexer)) {
-            if (lexer->lookahead == '<') {
-                lexer->mark_end(lexer);
-                razor_advance(lexer);
-                if (lexer->lookahead == '/') {
-                    razor_advance(lexer);
-                    const char *tag = "textarea";
-                    int i = 0;
-                    bool matches = true;
-                    while (tag[i] && matches) {
-                        int32_t c = lexer->lookahead;
-                        if (c != tag[i] && c != (tag[i] - 32)) {
-                            matches = false;
-                        } else {
-                            razor_advance(lexer);
-                            i++;
-                        }
-                    }
-                    if (matches && i == 8 && is_end_tag_terminator(lexer->lookahead)) {
-                        break;
-                    }
-                }
-                has_content = true;
-                lexer->mark_end(lexer);
-            } else {
-                razor_advance(lexer);
-                has_content = true;
-                lexer->mark_end(lexer);
+            if (valid_symbols[PREPROC_ENDREGION] && strcmp(keyword, "endregion") == 0) {
+                lexer->result_symbol = PREPROC_ENDREGION;
+                return true;
             }
-        }
+            if (valid_symbols[PREPROC_LINE] && strcmp(keyword, "line") == 0) {
+                lexer->result_symbol = PREPROC_LINE;
+                return true;
+            }
+            if (valid_symbols[PREPROC_PRAGMA] && strcmp(keyword, "pragma") == 0) {
+                lexer->result_symbol = PREPROC_PRAGMA;
+                return true;
+            }
+            if (valid_symbols[PREPROC_NULLABLE] && strcmp(keyword, "nullable") == 0) {
+                lexer->result_symbol = PREPROC_NULLABLE;
+                return true;
+            }
+            if (valid_symbols[PREPROC_ERROR] && strcmp(keyword, "error") == 0) {
+                lexer->result_symbol = PREPROC_ERROR;
+                return true;
+            }
+            if (valid_symbols[PREPROC_WARNING] && strcmp(keyword, "warning") == 0) {
+                lexer->result_symbol = PREPROC_WARNING;
+                return true;
+            }
+            if (valid_symbols[PREPROC_DEFINE] && strcmp(keyword, "define") == 0) {
+                lexer->result_symbol = PREPROC_DEFINE;
+                return true;
+            }
+            if (valid_symbols[PREPROC_UNDEF] && strcmp(keyword, "undef") == 0) {
+                lexer->result_symbol = PREPROC_UNDEF;
+                return true;
+            }
 
-        if (has_content) {
-            lexer->result_symbol = TEXTAREA_CONTENT;
-            return true;
+            // Fallback for unknown directives (but not #if/#else/#elif/#endif)
+            if (valid_symbols[PREPROC_DIRECTIVE] && keyword_len > 0 &&
+                strcmp(keyword, "if") != 0 &&
+                strcmp(keyword, "else") != 0 &&
+                strcmp(keyword, "elif") != 0 &&
+                strcmp(keyword, "endif") != 0) {
+                lexer->result_symbol = PREPROC_DIRECTIVE;
+                return true;
+            }
+
+            // No matching directive - don't consume anything
+            return false;
         }
-        return false;
     }
 
     // -------------------------------------------------------------------------

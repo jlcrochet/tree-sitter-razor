@@ -15,23 +15,19 @@ Blazor component with parameter
 ================================================================================
 Blazor component with child content
 ================================================================================
-<Container>
-    <p>Child content</p>
-</Container>
+<Container><p>Child content</p></Container>
 --------------------------------------------------------------------------------
 
 (compilation_unit
   (element
     (start_tag
       (tag_name))
-    (text)
     (element
       (start_tag
         (tag_name))
       (text)
       (end_tag
         (tag_name)))
-    (text)
     (end_tag
       (tag_name))))
 

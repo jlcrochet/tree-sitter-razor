@@ -667,7 +667,7 @@ Title content with title-like text that should not terminate
 ================================================================================
 Textarea content with textarea-like text that should not terminate
 ================================================================================
-<textarea></textareas> is not the end</textarea>
+<textarea>The </textareas> Story</textarea>
 --------------------------------------------------------------------------------
 
 (compilation_unit

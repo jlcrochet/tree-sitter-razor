@@ -381,3 +381,22 @@ Preprocessor if-elif-else
               (variable_declarator
                 (identifier)
                 (integer_literal)))))))))
+
+================================================================================
+Unknown preprocessor directive
+================================================================================
+@{
+    #unknown
+    var x = 1;
+}
+--------------------------------------------------------------------------------
+
+(compilation_unit
+  (razor_code_block
+    (preproc_directive)
+    (local_declaration_statement
+      (variable_declaration
+        (implicit_type)
+        (variable_declarator
+          (identifier)
+          (integer_literal))))))

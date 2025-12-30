@@ -658,6 +658,36 @@
     ]
   },
   {
+    "type": "type_declaration",
+    "named": true,
+    "subtypes": [
+      {
+        "type": "class_declaration",
+        "named": true
+      },
+      {
+        "type": "delegate_declaration",
+        "named": true
+      },
+      {
+        "type": "enum_declaration",
+        "named": true
+      },
+      {
+        "type": "interface_declaration",
+        "named": true
+      },
+      {
+        "type": "record_declaration",
+        "named": true
+      },
+      {
+        "type": "struct_declaration",
+        "named": true
+      }
+    ]
+  },
+  {
     "type": "accessor_declaration",
     "named": true,
     "fields": {
@@ -1136,6 +1166,25 @@
           }
         ]
       }
+    }
+  },
+  {
+    "type": "at_star_attribute",
+    "named": true,
+    "fields": {},
+    "children": {
+      "multiple": true,
+      "required": true,
+      "types": [
+        {
+          "type": "html_attribute_name",
+          "named": true
+        },
+        {
+          "type": "html_attribute_value",
+          "named": true
+        }
+      ]
     }
   },
   {
@@ -3415,6 +3464,11 @@
     }
   },
   {
+    "type": "html_comment",
+    "named": true,
+    "fields": {}
+  },
+  {
     "type": "html_quoted_attribute_value",
     "named": true,
     "fields": {},
@@ -5030,6 +5084,7 @@
   {
     "type": "preproc_define",
     "named": true,
+    "extra": true,
     "fields": {},
     "children": {
       "multiple": false,
@@ -5041,6 +5096,12 @@
         }
       ]
     }
+  },
+  {
+    "type": "preproc_directive",
+    "named": true,
+    "extra": true,
+    "fields": {}
   },
   {
     "type": "preproc_elif",
@@ -5104,19 +5165,7 @@
           "named": true
         },
         {
-          "type": "block",
-          "named": true
-        },
-        {
           "type": "declaration",
-          "named": true
-        },
-        {
-          "type": "element",
-          "named": true
-        },
-        {
-          "type": "empty_statement",
           "named": true
         },
         {
@@ -5128,35 +5177,23 @@
           "named": true
         },
         {
-          "type": "expression_statement",
+          "type": "extern_alias_directive",
           "named": true
         },
         {
-          "type": "local_declaration_statement",
+          "type": "file_scoped_namespace_declaration",
           "named": true
         },
         {
-          "type": "local_function_statement",
+          "type": "global_attribute",
           "named": true
         },
         {
-          "type": "razor_comment",
+          "type": "statement",
           "named": true
         },
         {
-          "type": "razor_text_literal",
-          "named": true
-        },
-        {
-          "type": "self_closing_element",
-          "named": true
-        },
-        {
-          "type": "throw_statement",
-          "named": true
-        },
-        {
-          "type": "void_element",
+          "type": "type_declaration",
           "named": true
         }
       ]
@@ -5175,19 +5212,7 @@
           "named": true
         },
         {
-          "type": "block",
-          "named": true
-        },
-        {
           "type": "declaration",
-          "named": true
-        },
-        {
-          "type": "element",
-          "named": true
-        },
-        {
-          "type": "empty_statement",
           "named": true
         },
         {
@@ -5199,35 +5224,23 @@
           "named": true
         },
         {
-          "type": "expression_statement",
+          "type": "extern_alias_directive",
           "named": true
         },
         {
-          "type": "local_declaration_statement",
+          "type": "file_scoped_namespace_declaration",
           "named": true
         },
         {
-          "type": "local_function_statement",
+          "type": "global_attribute",
           "named": true
         },
         {
-          "type": "razor_comment",
+          "type": "statement",
           "named": true
         },
         {
-          "type": "razor_text_literal",
-          "named": true
-        },
-        {
-          "type": "self_closing_element",
-          "named": true
-        },
-        {
-          "type": "throw_statement",
-          "named": true
-        },
-        {
-          "type": "void_element",
+          "type": "type_declaration",
           "named": true
         }
       ]
@@ -5236,6 +5249,7 @@
   {
     "type": "preproc_endregion",
     "named": true,
+    "extra": true,
     "fields": {
       "content": {
         "multiple": false,
@@ -5252,6 +5266,7 @@
   {
     "type": "preproc_error",
     "named": true,
+    "extra": true,
     "fields": {},
     "children": {
       "multiple": false,
@@ -5322,19 +5337,7 @@
       "required": false,
       "types": [
         {
-          "type": "block",
-          "named": true
-        },
-        {
           "type": "declaration",
-          "named": true
-        },
-        {
-          "type": "element",
-          "named": true
-        },
-        {
-          "type": "empty_statement",
           "named": true
         },
         {
@@ -5346,35 +5349,23 @@
           "named": true
         },
         {
-          "type": "expression_statement",
+          "type": "extern_alias_directive",
           "named": true
         },
         {
-          "type": "local_declaration_statement",
+          "type": "file_scoped_namespace_declaration",
           "named": true
         },
         {
-          "type": "local_function_statement",
+          "type": "global_attribute",
           "named": true
         },
         {
-          "type": "razor_comment",
+          "type": "statement",
           "named": true
         },
         {
-          "type": "razor_text_literal",
-          "named": true
-        },
-        {
-          "type": "self_closing_element",
-          "named": true
-        },
-        {
-          "type": "throw_statement",
-          "named": true
-        },
-        {
-          "type": "void_element",
+          "type": "type_declaration",
           "named": true
         }
       ]
@@ -5447,6 +5438,7 @@
   {
     "type": "preproc_line",
     "named": true,
+    "extra": true,
     "fields": {},
     "children": {
       "multiple": true,
@@ -5466,11 +5458,13 @@
   {
     "type": "preproc_nullable",
     "named": true,
+    "extra": true,
     "fields": {}
   },
   {
     "type": "preproc_pragma",
     "named": true,
+    "extra": true,
     "fields": {},
     "children": {
       "multiple": true,
@@ -5494,6 +5488,7 @@
   {
     "type": "preproc_region",
     "named": true,
+    "extra": true,
     "fields": {
       "content": {
         "multiple": false,
@@ -5510,6 +5505,7 @@
   {
     "type": "preproc_undef",
     "named": true,
+    "extra": true,
     "fields": {},
     "children": {
       "multiple": false,
@@ -5525,6 +5521,7 @@
   {
     "type": "preproc_warning",
     "named": true,
+    "extra": true,
     "fields": {},
     "children": {
       "multiple": false,
@@ -5866,42 +5863,6 @@
       "required": false,
       "types": [
         {
-          "type": "await_expression",
-          "named": true
-        },
-        {
-          "type": "block",
-          "named": true
-        },
-        {
-          "type": "boolean_literal",
-          "named": true
-        },
-        {
-          "type": "conditional_access_expression",
-          "named": true
-        },
-        {
-          "type": "element",
-          "named": true
-        },
-        {
-          "type": "element_access_expression",
-          "named": true
-        },
-        {
-          "type": "empty_statement",
-          "named": true
-        },
-        {
-          "type": "expression",
-          "named": true
-        },
-        {
-          "type": "expression_statement",
-          "named": true
-        },
-        {
           "type": "extern_alias_directive",
           "named": true
         },
@@ -5914,75 +5875,15 @@
           "named": true
         },
         {
-          "type": "identifier",
-          "named": true
-        },
-        {
-          "type": "invocation_expression",
-          "named": true
-        },
-        {
-          "type": "local_declaration_statement",
-          "named": true
-        },
-        {
-          "type": "local_function_statement",
-          "named": true
-        },
-        {
-          "type": "member_access_expression",
-          "named": true
-        },
-        {
-          "type": "null_literal",
-          "named": true
-        },
-        {
-          "type": "postfix_unary_expression",
-          "named": true
-        },
-        {
-          "type": "preproc_define",
-          "named": true
-        },
-        {
-          "type": "preproc_endregion",
-          "named": true
-        },
-        {
-          "type": "preproc_error",
-          "named": true
-        },
-        {
-          "type": "preproc_if",
-          "named": true
-        },
-        {
-          "type": "preproc_line",
-          "named": true
-        },
-        {
-          "type": "preproc_nullable",
-          "named": true
-        },
-        {
-          "type": "preproc_pragma",
-          "named": true
-        },
-        {
-          "type": "preproc_region",
-          "named": true
-        },
-        {
-          "type": "preproc_undef",
-          "named": true
-        },
-        {
-          "type": "preproc_warning",
-          "named": true
-        },
-        {
           "type": "razor_comment",
+          "named": true
+        },
+        {
+          "type": "razor_explicit_expression",
+          "named": true
+        },
+        {
+          "type": "razor_implicit_expression",
           "named": true
         },
         {
@@ -5990,23 +5891,11 @@
           "named": true
         },
         {
-          "type": "razor_text_literal",
-          "named": true
-        },
-        {
-          "type": "self_closing_element",
-          "named": true
-        },
-        {
-          "type": "throw_statement",
+          "type": "statement",
           "named": true
         },
         {
           "type": "using_directive",
-          "named": true
-        },
-        {
-          "type": "void_element",
           "named": true
         }
       ]
@@ -6021,42 +5910,6 @@
       "required": false,
       "types": [
         {
-          "type": "await_expression",
-          "named": true
-        },
-        {
-          "type": "block",
-          "named": true
-        },
-        {
-          "type": "boolean_literal",
-          "named": true
-        },
-        {
-          "type": "conditional_access_expression",
-          "named": true
-        },
-        {
-          "type": "element",
-          "named": true
-        },
-        {
-          "type": "element_access_expression",
-          "named": true
-        },
-        {
-          "type": "empty_statement",
-          "named": true
-        },
-        {
-          "type": "expression",
-          "named": true
-        },
-        {
-          "type": "expression_statement",
-          "named": true
-        },
-        {
           "type": "extern_alias_directive",
           "named": true
         },
@@ -6069,75 +5922,15 @@
           "named": true
         },
         {
-          "type": "identifier",
-          "named": true
-        },
-        {
-          "type": "invocation_expression",
-          "named": true
-        },
-        {
-          "type": "local_declaration_statement",
-          "named": true
-        },
-        {
-          "type": "local_function_statement",
-          "named": true
-        },
-        {
-          "type": "member_access_expression",
-          "named": true
-        },
-        {
-          "type": "null_literal",
-          "named": true
-        },
-        {
-          "type": "postfix_unary_expression",
-          "named": true
-        },
-        {
-          "type": "preproc_define",
-          "named": true
-        },
-        {
-          "type": "preproc_endregion",
-          "named": true
-        },
-        {
-          "type": "preproc_error",
-          "named": true
-        },
-        {
-          "type": "preproc_if",
-          "named": true
-        },
-        {
-          "type": "preproc_line",
-          "named": true
-        },
-        {
-          "type": "preproc_nullable",
-          "named": true
-        },
-        {
-          "type": "preproc_pragma",
-          "named": true
-        },
-        {
-          "type": "preproc_region",
-          "named": true
-        },
-        {
-          "type": "preproc_undef",
-          "named": true
-        },
-        {
-          "type": "preproc_warning",
-          "named": true
-        },
-        {
           "type": "razor_comment",
+          "named": true
+        },
+        {
+          "type": "razor_explicit_expression",
+          "named": true
+        },
+        {
+          "type": "razor_implicit_expression",
           "named": true
         },
         {
@@ -6145,23 +5938,11 @@
           "named": true
         },
         {
-          "type": "razor_text_literal",
-          "named": true
-        },
-        {
-          "type": "self_closing_element",
-          "named": true
-        },
-        {
-          "type": "throw_statement",
+          "type": "statement",
           "named": true
         },
         {
           "type": "using_directive",
-          "named": true
-        },
-        {
-          "type": "void_element",
           "named": true
         }
       ]
@@ -6656,43 +6437,7 @@
       "required": false,
       "types": [
         {
-          "type": "await_expression",
-          "named": true
-        },
-        {
-          "type": "block",
-          "named": true
-        },
-        {
-          "type": "boolean_literal",
-          "named": true
-        },
-        {
-          "type": "break_statement",
-          "named": true
-        },
-        {
-          "type": "conditional_access_expression",
-          "named": true
-        },
-        {
-          "type": "element",
-          "named": true
-        },
-        {
-          "type": "element_access_expression",
-          "named": true
-        },
-        {
-          "type": "empty_statement",
-          "named": true
-        },
-        {
           "type": "expression",
-          "named": true
-        },
-        {
-          "type": "expression_statement",
           "named": true
         },
         {
@@ -6708,75 +6453,7 @@
           "named": true
         },
         {
-          "type": "identifier",
-          "named": true
-        },
-        {
-          "type": "invocation_expression",
-          "named": true
-        },
-        {
-          "type": "local_declaration_statement",
-          "named": true
-        },
-        {
-          "type": "local_function_statement",
-          "named": true
-        },
-        {
-          "type": "member_access_expression",
-          "named": true
-        },
-        {
-          "type": "null_literal",
-          "named": true
-        },
-        {
           "type": "pattern",
-          "named": true
-        },
-        {
-          "type": "postfix_unary_expression",
-          "named": true
-        },
-        {
-          "type": "preproc_define",
-          "named": true
-        },
-        {
-          "type": "preproc_endregion",
-          "named": true
-        },
-        {
-          "type": "preproc_error",
-          "named": true
-        },
-        {
-          "type": "preproc_if",
-          "named": true
-        },
-        {
-          "type": "preproc_line",
-          "named": true
-        },
-        {
-          "type": "preproc_nullable",
-          "named": true
-        },
-        {
-          "type": "preproc_pragma",
-          "named": true
-        },
-        {
-          "type": "preproc_region",
-          "named": true
-        },
-        {
-          "type": "preproc_undef",
-          "named": true
-        },
-        {
-          "type": "preproc_warning",
           "named": true
         },
         {
@@ -6784,27 +6461,23 @@
           "named": true
         },
         {
+          "type": "razor_explicit_expression",
+          "named": true
+        },
+        {
+          "type": "razor_implicit_expression",
+          "named": true
+        },
+        {
           "type": "razor_statement",
           "named": true
         },
         {
-          "type": "razor_text_literal",
-          "named": true
-        },
-        {
-          "type": "self_closing_element",
-          "named": true
-        },
-        {
-          "type": "throw_statement",
+          "type": "statement",
           "named": true
         },
         {
           "type": "using_directive",
-          "named": true
-        },
-        {
-          "type": "void_element",
           "named": true
         },
         {
@@ -7193,6 +6866,10 @@
       "required": true,
       "types": [
         {
+          "type": "at_star_attribute",
+          "named": true
+        },
+        {
           "type": "dynamic_attribute",
           "named": true
         },
@@ -7265,6 +6942,10 @@
       "multiple": true,
       "required": true,
       "types": [
+        {
+          "type": "at_star_attribute",
+          "named": true
+        },
         {
           "type": "dynamic_attribute",
           "named": true
@@ -8060,6 +7741,10 @@
       "required": true,
       "types": [
         {
+          "type": "at_star_attribute",
+          "named": true
+        },
+        {
           "type": "dynamic_attribute",
           "named": true
         },
@@ -8194,6 +7879,10 @@
         }
       ]
     }
+  },
+  {
+    "type": "\n",
+    "named": false
   },
   {
     "type": "!",
@@ -8721,10 +8410,6 @@
   },
   {
     "type": "html_character_reference",
-    "named": true
-  },
-  {
-    "type": "html_comment",
     "named": true
   },
   {

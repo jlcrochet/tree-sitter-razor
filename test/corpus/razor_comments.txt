@@ -160,3 +160,26 @@ Razor comment in foreach block
             (identifier))
           (end_tag
             (tag_name)))))))
+
+================================================================================
+@* and *@ as HTML attribute names in tags
+================================================================================
+<div @* foo *@ class="bar"></div>
+--------------------------------------------------------------------------------
+
+(compilation_unit
+  (element
+    (start_tag
+      (tag_name)
+      (at_star_attribute
+        (html_attribute_name))
+      (html_attribute
+        (html_attribute_name))
+      (at_star_attribute
+        (html_attribute_name))
+      (html_attribute
+        (html_attribute_name)
+        (html_attribute_value
+          (html_quoted_attribute_value))))
+    (end_tag
+      (tag_name))))
