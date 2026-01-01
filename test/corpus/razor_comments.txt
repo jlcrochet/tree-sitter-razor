@@ -183,3 +183,93 @@ Razor comment in foreach block
           (html_quoted_attribute_value))))
     (end_tag
       (tag_name))))
+
+================================================================================
+Razor comment in implicit expression method call
+================================================================================
+@Method(@* comment *@ arg)
+--------------------------------------------------------------------------------
+
+(compilation_unit
+  (razor_implicit_expression
+    (invocation_expression
+      (identifier)
+      (argument_list
+        (razor_comment)
+        (argument
+          (identifier))))))
+
+================================================================================
+Razor comment in implicit expression indexer
+================================================================================
+@arr[@* comment *@ 0]
+--------------------------------------------------------------------------------
+
+(compilation_unit
+  (razor_implicit_expression
+    (element_access_expression
+      (identifier)
+      (razor_comment)
+      (integer_literal))))
+
+================================================================================
+Razor comment in implicit expression conditional indexer
+================================================================================
+@arr?[@* comment *@ 0]
+--------------------------------------------------------------------------------
+
+(compilation_unit
+  (razor_implicit_expression
+    (conditional_access_expression
+      (identifier)
+      (razor_comment)
+      (integer_literal))))
+
+================================================================================
+Razor comment in explicit expression
+================================================================================
+@(1 @* comment *@ + 2)
+--------------------------------------------------------------------------------
+
+(compilation_unit
+  (razor_explicit_expression
+    (binary_expression
+      (integer_literal)
+      (razor_comment)
+      (integer_literal))))
+
+================================================================================
+Razor comment in array initializer
+================================================================================
+@{
+    Person[] people = [
+        new("Alice"),
+        @* netohs *@
+        new("Bob")
+    ];
+}
+--------------------------------------------------------------------------------
+
+(compilation_unit
+  (razor_code_block
+    (local_declaration_statement
+      (variable_declaration
+        (array_type
+          (identifier)
+          (array_rank_specifier))
+        (variable_declarator
+          (identifier)
+          (element_binding_expression
+            (argument
+              (implicit_object_creation_expression
+                (argument_list
+                  (argument
+                    (string_literal
+                      (string_literal_content))))))
+            (razor_comment)
+            (argument
+              (implicit_object_creation_expression
+                (argument_list
+                  (argument
+                    (string_literal
+                      (string_literal_content))))))))))))

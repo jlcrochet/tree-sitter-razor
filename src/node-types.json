@@ -6508,19 +6508,11 @@
     "named": true,
     "fields": {},
     "children": {
-      "multiple": true,
+      "multiple": false,
       "required": false,
       "types": [
         {
-          "type": "escaped_at",
-          "named": true
-        },
-        {
-          "type": "razor_explicit_expression",
-          "named": true
-        },
-        {
-          "type": "razor_implicit_expression",
+          "type": "text_literal_content",
           "named": true
         }
       ]
@@ -8121,10 +8113,6 @@
     "named": false
   },
   {
-    "type": "?[",
-    "named": false
-  },
-  {
     "type": "@",
     "named": false
   },
@@ -8710,6 +8698,10 @@
   },
   {
     "type": "tag_name",
+    "named": true
+  },
+  {
+    "type": "text_literal_content",
     "named": true
   },
   {

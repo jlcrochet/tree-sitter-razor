@@ -667,7 +667,7 @@ Title content with title-like text that should not terminate
 ================================================================================
 Textarea content with textarea-like text that should not terminate
 ================================================================================
-<textarea>The </textareas> Story</textarea>
+<textarea></textareas> is not the end</textarea>
 --------------------------------------------------------------------------------
 
 (compilation_unit
@@ -892,6 +892,20 @@ Escaped at in attribute value
             (escaped_at)))))
     (end_tag
       (tag_name))))
+
+================================================================================
+Razor comment syntax as literal text in attribute value (not a comment)
+================================================================================
+<div foo='@* bar *@' />
+--------------------------------------------------------------------------------
+
+(compilation_unit
+  (self_closing_element
+    (tag_name)
+    (html_attribute
+      (html_attribute_name)
+      (html_attribute_value
+        (html_quoted_attribute_value)))))
 
 ================================================================================
 Multiple escape combinations in attribute

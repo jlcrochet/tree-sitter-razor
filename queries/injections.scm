@@ -13,3 +13,10 @@
   (raw_text) @injection.content)
   (#match? @_tag_name "^[Ss][Tt][Yy][Ll][Ee]$")
   (#set! injection.language "css"))
+
+; Inject Razor into text literal content (@:)
+; This allows HTML elements, Razor expressions, etc. to be parsed within text literals
+((razor_text_literal
+  (text_literal_content) @injection.content)
+  (#set! injection.language "razor")
+  (#set! injection.include-children))

@@ -50,7 +50,8 @@ Code block with text literal
 
 (compilation_unit
   (razor_code_block
-    (razor_text_literal)))
+    (razor_text_literal
+      (text_literal_content))))
 
 ================================================================================
 Functions block
@@ -266,25 +267,66 @@ Whitespace in C# code is allowed (extras)
             (identifier)))))))
 
 ================================================================================
-Text literal as statement body
+Text literal with embedded expressions (captured as text_literal_content)
 ================================================================================
 @{
-    void Render() {
-        if (show) @:Hello
+    @:Hello @name, welcome!
+}
+--------------------------------------------------------------------------------
+
+(compilation_unit
+  (razor_code_block
+    (razor_text_literal
+      (text_literal_content))))
+
+================================================================================
+Multiple text literals in code block
+================================================================================
+@{
+    @:First line
+    @:Second line
+    @:Third line
+}
+--------------------------------------------------------------------------------
+
+(compilation_unit
+  (razor_code_block
+    (razor_text_literal
+      (text_literal_content))
+    (razor_text_literal
+      (text_literal_content))
+    (razor_text_literal
+      (text_literal_content))))
+
+================================================================================
+Empty text literal
+================================================================================
+@{
+    @:
+}
+--------------------------------------------------------------------------------
+
+(compilation_unit
+  (razor_code_block
+    (razor_text_literal)))
+
+================================================================================
+Text literal inside if block
+================================================================================
+@{
+    if (show) {
+        @:Hello there!
     }
 }
 --------------------------------------------------------------------------------
 
 (compilation_unit
   (razor_code_block
-    (local_function_statement
-      (predefined_type)
+    (if_statement
       (identifier)
-      (parameter_list)
       (block
-        (if_statement
-          (identifier)
-          (razor_text_literal))))))
+        (razor_text_literal
+          (text_literal_content))))))
 
 ================================================================================
 HTML element as statement body
