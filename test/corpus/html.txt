@@ -764,6 +764,131 @@ Bare ampersand in text
       (tag_name))))
 
 ================================================================================
+Bare ampersand in double-quoted attribute value
+================================================================================
+<p title="Tom & Jerry">text</p>
+--------------------------------------------------------------------------------
+
+(compilation_unit
+  (element
+    (start_tag
+      (tag_name)
+      (html_attribute
+        (html_attribute_name)
+        (html_attribute_value
+          (html_quoted_attribute_value))))
+    (text)
+    (end_tag
+      (tag_name))))
+
+================================================================================
+Bare ampersand in single-quoted attribute value
+================================================================================
+<a href='?a=1&b=2'>link</a>
+--------------------------------------------------------------------------------
+
+(compilation_unit
+  (element
+    (start_tag
+      (tag_name)
+      (html_attribute
+        (html_attribute_name)
+        (html_attribute_value
+          (html_quoted_attribute_value))))
+    (text)
+    (end_tag
+      (tag_name))))
+
+================================================================================
+Multiple character references in attribute value
+================================================================================
+<input value="5 &gt; 3 &amp;&amp; true">
+--------------------------------------------------------------------------------
+
+(compilation_unit
+  (void_element
+    (tag_name)
+    (html_attribute
+      (html_attribute_name)
+      (html_attribute_value
+        (html_quoted_attribute_value
+          (html_character_reference)
+          (html_character_reference)
+          (html_character_reference))))))
+
+================================================================================
+Character reference with Razor expression in attribute value
+================================================================================
+<a href="/path?x=@foo&amp;y=@bar">link</a>
+--------------------------------------------------------------------------------
+
+(compilation_unit
+  (element
+    (start_tag
+      (tag_name)
+      (html_attribute
+        (html_attribute_name)
+        (html_attribute_value
+          (html_quoted_attribute_value
+            (razor_implicit_expression
+              (identifier))
+            (html_character_reference)
+            (razor_implicit_expression
+              (identifier))))))
+    (text)
+    (end_tag
+      (tag_name))))
+
+================================================================================
+Character reference in single-quoted attribute value
+================================================================================
+<a href='&lt;link&gt;'>test</a>
+--------------------------------------------------------------------------------
+
+(compilation_unit
+  (element
+    (start_tag
+      (tag_name)
+      (html_attribute
+        (html_attribute_name)
+        (html_attribute_value
+          (html_quoted_attribute_value
+            (html_character_reference)
+            (html_character_reference)))))
+    (text)
+    (end_tag
+      (tag_name))))
+
+================================================================================
+Character reference in unquoted attribute value
+================================================================================
+<input value=a&amp;b>
+--------------------------------------------------------------------------------
+
+(compilation_unit
+  (void_element
+    (tag_name)
+    (html_attribute
+      (html_attribute_name)
+      (html_attribute_value
+        (html_unquoted_attribute_value
+          (html_character_reference))))))
+
+================================================================================
+Bare ampersand in unquoted attribute value
+================================================================================
+<input data-value=foo&bar>
+--------------------------------------------------------------------------------
+
+(compilation_unit
+  (void_element
+    (tag_name)
+    (html_attribute
+      (html_attribute_name)
+      (html_attribute_value
+        (html_unquoted_attribute_value)))))
+
+================================================================================
 Symbol-bound attribute with brackets
 ================================================================================
 <a [item]='Foo'></a>

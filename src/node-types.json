@@ -1686,6 +1686,10 @@
           "named": true
         },
         {
+          "type": "comment",
+          "named": true
+        },
+        {
           "type": "razor_comment",
           "named": true
         }
@@ -1867,10 +1871,6 @@
         },
         {
           "type": "escaped_at",
-          "named": true
-        },
-        {
-          "type": "html_character_reference",
           "named": true
         },
         {
@@ -2686,6 +2686,10 @@
       "required": true,
       "types": [
         {
+          "type": "comment",
+          "named": true
+        },
+        {
           "type": "razor_block",
           "named": true
         },
@@ -3079,6 +3083,10 @@
       "types": [
         {
           "type": "block",
+          "named": true
+        },
+        {
+          "type": "comment",
           "named": true
         },
         {
@@ -3490,6 +3498,21 @@
         },
         {
           "type": "razor_implicit_expression",
+          "named": true
+        }
+      ]
+    }
+  },
+  {
+    "type": "html_unquoted_attribute_value",
+    "named": true,
+    "fields": {},
+    "children": {
+      "multiple": true,
+      "required": false,
+      "types": [
+        {
+          "type": "html_character_reference",
           "named": true
         }
       ]
@@ -6012,6 +6035,10 @@
       "required": false,
       "types": [
         {
+          "type": "comment",
+          "named": true
+        },
+        {
           "type": "razor_comment",
           "named": true
         }
@@ -6328,10 +6355,6 @@
         },
         {
           "type": "escaped_at",
-          "named": true
-        },
-        {
-          "type": "html_character_reference",
           "named": true
         },
         {
@@ -7220,7 +7243,17 @@
   {
     "type": "text",
     "named": true,
-    "fields": {}
+    "fields": {},
+    "children": {
+      "multiple": true,
+      "required": false,
+      "types": [
+        {
+          "type": "html_character_reference",
+          "named": true
+        }
+      ]
+    }
   },
   {
     "type": "throw_expression",
@@ -8398,10 +8431,6 @@
   },
   {
     "type": "html_character_reference",
-    "named": true
-  },
-  {
-    "type": "html_unquoted_attribute_value",
     "named": true
   },
   {

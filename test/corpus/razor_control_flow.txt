@@ -496,6 +496,41 @@ else
               (tag_name))))))))
 
 ================================================================================
+C# comment between if and else clauses
+================================================================================
+@if (condition)
+{
+    <p>True</p>
+}
+// comment between clauses
+else
+{
+    <p>False</p>
+}
+--------------------------------------------------------------------------------
+
+(compilation_unit
+  (razor_statement
+    (if_statement
+      condition: (identifier)
+      consequence: (razor_block
+        (element
+          (start_tag
+            (tag_name))
+          (text)
+          (end_tag
+            (tag_name))))
+      alternative: (else_clause
+        (comment)
+        (razor_block
+          (element
+            (start_tag
+              (tag_name))
+            (text)
+            (end_tag
+              (tag_name))))))))
+
+================================================================================
 Razor comment between try and catch clauses
 ================================================================================
 @try

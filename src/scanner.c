@@ -51,6 +51,7 @@ enum RazorTokenType {
     IMPLICIT_BRACKET_OPEN,
     IMPLICIT_CONDITIONAL_BRACKET_OPEN,
     TEXT_LITERAL_CONTENT,
+    TOP_LEVEL_CSHARP_COMMENT,
 };
 
 typedef enum {
@@ -77,6 +78,92 @@ static inline bool in_csharp_context(RazorScanner *scanner) {
 
 static inline bool in_html_tag_context(RazorScanner *scanner) {
     return scanner->context_stack.size > 0 && *array_back(&scanner->context_stack) == CONTEXT_HTML_TAG;
+}
+
+static inline bool is_end_tag_terminator(int32_t c) {
+    return c == '\t' || c == '\n' || c == '\f' || c == ' ' || c == '/' || c == '>';
+}
+
+// Check for case-insensitive closing tag after "</". Advances lexer past tag name.
+static bool check_closing_tag(TSLexer *lexer, const char *tag_name, int tag_len) {
+    int i = 0;
+    while (tag_name[i]) {
+        int32_t c = lexer->lookahead;
+        // Case-insensitive comparison (works for ASCII a-z/A-Z)
+        if (c != tag_name[i] && c != (tag_name[i] - 32) && c != (tag_name[i] + 32)) {
+            return false;
+        }
+        razor_advance(lexer);
+        i++;
+    }
+    return i == tag_len && is_end_tag_terminator(lexer->lookahead);
+}
+
+// Scan raw text content until matching closing tag. Returns true if content found.
+static bool scan_raw_text_content(TSLexer *lexer, const char *tag_name, int tag_len,
+                                   enum RazorTokenType result_token) {
+    bool has_content = false;
+    while (!lexer->eof(lexer)) {
+        if (lexer->lookahead == '<') {
+            lexer->mark_end(lexer);
+            razor_advance(lexer);
+            if (lexer->lookahead == '/') {
+                razor_advance(lexer);
+                if (check_closing_tag(lexer, tag_name, tag_len)) {
+                    break;
+                }
+            }
+            has_content = true;
+            lexer->mark_end(lexer);
+        } else {
+            razor_advance(lexer);
+            has_content = true;
+            lexer->mark_end(lexer);
+        }
+    }
+    if (has_content) {
+        lexer->result_symbol = result_token;
+        return true;
+    }
+    return false;
+}
+
+// Match C# comment (// or /* */). Returns true and sets result_symbol on success.
+static bool scan_csharp_comment(TSLexer *lexer, enum RazorTokenType result_token) {
+    if (lexer->lookahead != '/') return false;
+
+    razor_advance(lexer);
+    if (lexer->lookahead == '/') {
+        // Single-line comment
+        razor_advance(lexer);
+        while (!lexer->eof(lexer) && lexer->lookahead != '\n' && lexer->lookahead != '\r') {
+            razor_advance(lexer);
+        }
+        lexer->mark_end(lexer);
+        lexer->result_symbol = result_token;
+        return true;
+    } else if (lexer->lookahead == '*') {
+        // Block comment
+        razor_advance(lexer);
+        while (!lexer->eof(lexer)) {
+            if (lexer->lookahead == '*') {
+                razor_advance(lexer);
+                if (lexer->lookahead == '/') {
+                    razor_advance(lexer);
+                    lexer->mark_end(lexer);
+                    lexer->result_symbol = result_token;
+                    return true;
+                }
+            } else {
+                razor_advance(lexer);
+            }
+        }
+        // Unterminated block comment - still return it
+        lexer->mark_end(lexer);
+        lexer->result_symbol = result_token;
+        return true;
+    }
+    return false;
 }
 
 // Check if character is a Unicode letter (approximation covering main categories)
@@ -181,10 +268,6 @@ static inline bool is_whitespace(int32_t c) {
            c == 0x00A0 || c == 0x1680 ||
            (c >= 0x2000 && c <= 0x200A) ||
            c == 0x202F || c == 0x205F || c == 0x3000;
-}
-
-static inline bool is_end_tag_terminator(int32_t c) {
-    return c == '\t' || c == '\n' || c == '\f' || c == ' ' || c == '/' || c == '>';
 }
 
 static inline bool is_email_char(int32_t c) {
@@ -412,173 +495,42 @@ bool tree_sitter_razor_external_scanner_scan(void *payload, TSLexer *lexer, cons
         return false;
     }
 
-    // Raw text content handlers (script, style, title, textarea)
-    // Must come before HTML tag handling to consume non-matching tags as content
-
-    // Script content
+    // Raw text content (script, style, title, textarea)
+    // At '<' with HTML_END_TAG_OPEN valid: fall through to HTML tag handler
+    // Otherwise: scan content until matching closing tag
     if (valid_symbols[SCRIPT_CONTENT]) {
-        if (lexer->lookahead == '<' && valid_symbols[HTML_END_TAG_OPEN]) {
-            // Fall through to HTML tag handling
-        } else {
-            bool has_content = false;
-            while (!lexer->eof(lexer)) {
-                if (lexer->lookahead == '<') {
-                    lexer->mark_end(lexer);
-                    razor_advance(lexer);
-                    if (lexer->lookahead == '/') {
-                        razor_advance(lexer);
-                        const char *tag = "script";
-                        int i = 0;
-                        bool matches = true;
-                        while (tag[i] && matches) {
-                            int32_t c = lexer->lookahead;
-                            if (c != tag[i] && c != (tag[i] - 32)) {
-                                matches = false;
-                            } else {
-                                razor_advance(lexer);
-                                i++;
-                            }
-                        }
-                        if (matches && i == 6 && is_end_tag_terminator(lexer->lookahead)) {
-                            // Found closing tag - return content so far
-                            break;
-                        }
-                    }
-                    // Not closing tag - include as content
-                    has_content = true;
-                    lexer->mark_end(lexer);
-                } else {
-                    razor_advance(lexer);
-                    has_content = true;
-                    lexer->mark_end(lexer);
-                }
-            }
-            if (has_content) {
-                lexer->result_symbol = SCRIPT_CONTENT;
-                return true;
-            }
-            return false;
+        if (!(lexer->lookahead == '<' && valid_symbols[HTML_END_TAG_OPEN])) {
+            if (scan_raw_text_content(lexer, "script", 6, SCRIPT_CONTENT)) return true;
         }
     }
 
-    // Style content
     if (valid_symbols[STYLE_CONTENT]) {
-        if (lexer->lookahead == '<' && valid_symbols[HTML_END_TAG_OPEN]) {
-            // Fall through to HTML tag handling
-        } else {
-            bool has_content = false;
-            while (!lexer->eof(lexer)) {
-                if (lexer->lookahead == '<') {
-                    lexer->mark_end(lexer);
-                    razor_advance(lexer);
-                    if (lexer->lookahead == '/') {
-                        razor_advance(lexer);
-                        const char *tag = "style";
-                        int i = 0;
-                        bool matches = true;
-                        while (tag[i] && matches) {
-                            int32_t c = lexer->lookahead;
-                            if (c != tag[i] && c != (tag[i] - 32)) {
-                                matches = false;
-                            } else {
-                                razor_advance(lexer);
-                                i++;
-                            }
-                        }
-                        if (matches && i == 5 && is_end_tag_terminator(lexer->lookahead)) {
-                            break;
-                        }
-                    }
-                    has_content = true;
-                    lexer->mark_end(lexer);
-                } else {
-                    razor_advance(lexer);
-                    has_content = true;
-                    lexer->mark_end(lexer);
-                }
-            }
-            if (has_content) {
-                lexer->result_symbol = STYLE_CONTENT;
-                return true;
-            }
-            return false;
+        if (!(lexer->lookahead == '<' && valid_symbols[HTML_END_TAG_OPEN])) {
+            if (scan_raw_text_content(lexer, "style", 5, STYLE_CONTENT)) return true;
         }
     }
 
-    // Title content
     if (valid_symbols[TITLE_CONTENT]) {
-        if (lexer->lookahead == '<') {
-            // Fall through - let grammar handle tag
-        } else {
-            bool has_content = false;
-            while (!lexer->eof(lexer)) {
-                if (lexer->lookahead == '<') {
-                    lexer->mark_end(lexer);
-                    razor_advance(lexer);
-                    if (lexer->lookahead == '/') {
-                        razor_advance(lexer);
-                        const char *tag = "title";
-                        int i = 0;
-                        bool matches = true;
-                        while (tag[i] && matches) {
-                            int32_t c = lexer->lookahead;
-                            if (c != tag[i] && c != (tag[i] - 32)) {
-                                matches = false;
-                            } else {
-                                razor_advance(lexer);
-                                i++;
-                            }
-                        }
-                        if (matches && i == 5 && is_end_tag_terminator(lexer->lookahead)) {
-                            break;
-                        }
-                    }
-                    has_content = true;
-                    lexer->mark_end(lexer);
-                } else {
-                    razor_advance(lexer);
-                    has_content = true;
-                    lexer->mark_end(lexer);
-                }
-            }
-            if (has_content) {
-                lexer->result_symbol = TITLE_CONTENT;
-                return true;
-            }
-            return false;
+        if (!(lexer->lookahead == '<' && valid_symbols[HTML_END_TAG_OPEN])) {
+            if (scan_raw_text_content(lexer, "title", 5, TITLE_CONTENT)) return true;
         }
     }
 
-    // Textarea content (case-insensitive end tag matching)
+    // Textarea: must check if end tag matches before falling through
     if (valid_symbols[TEXTAREA_CONTENT]) {
         if (lexer->lookahead == '<') {
             razor_advance(lexer);
             if (lexer->lookahead == '/') {
                 razor_advance(lexer);
-                if (lexer->lookahead == '!') {
-                    razor_advance(lexer);
-                }
                 lexer->mark_end(lexer);
-
-                const char *tag = "textarea";
-                int i = 0;
-                bool matches = true;
-                while (tag[i] && matches) {
-                    int32_t c = lexer->lookahead;
-                    int32_t lower_c = (c >= 'A' && c <= 'Z') ? c + 32 : c;
-                    if (lower_c != tag[i]) {
-                        matches = false;
-                    } else {
-                        razor_advance(lexer);
-                        i++;
+                if (check_closing_tag(lexer, "textarea", 8)) {
+                    if (valid_symbols[HTML_END_TAG_OPEN]) {
+                        array_push(&scanner->context_stack, CONTEXT_HTML_TAG);
+                        lexer->result_symbol = HTML_END_TAG_OPEN;
+                        return true;
                     }
                 }
-                if (matches && i == 8 && is_end_tag_terminator(lexer->lookahead)) {
-                    array_push(&scanner->context_stack, CONTEXT_HTML_TAG);
-                    lexer->result_symbol = HTML_END_TAG_OPEN;
-                    return true;
-                }
-                // Not </textarea> - consume as content until real </textarea>
+                // Non-matching end tag - consume as content until real </textarea>
                 lexer->mark_end(lexer);
                 while (!lexer->eof(lexer)) {
                     if (lexer->lookahead == '<') {
@@ -586,25 +538,7 @@ bool tree_sitter_razor_external_scanner_scan(void *payload, TSLexer *lexer, cons
                         razor_advance(lexer);
                         if (lexer->lookahead == '/') {
                             razor_advance(lexer);
-                            if (lexer->lookahead == '!') {
-                                razor_advance(lexer);
-                            }
-                            const char *tag2 = "textarea";
-                            int j = 0;
-                            bool matches2 = true;
-                            while (tag2[j] && matches2) {
-                                int32_t c = lexer->lookahead;
-                                int32_t lower_c = (c >= 'A' && c <= 'Z') ? c + 32 : c;
-                                if (lower_c != tag2[j]) {
-                                    matches2 = false;
-                                } else {
-                                    razor_advance(lexer);
-                                    j++;
-                                }
-                            }
-                            if (matches2 && j == 8 && is_end_tag_terminator(lexer->lookahead)) {
-                                break;
-                            }
+                            if (check_closing_tag(lexer, "textarea", 8)) break;
                         }
                         lexer->mark_end(lexer);
                     } else {
@@ -614,54 +548,15 @@ bool tree_sitter_razor_external_scanner_scan(void *payload, TSLexer *lexer, cons
                 }
                 lexer->result_symbol = TEXTAREA_CONTENT;
                 return true;
-            } else {
-                // '<' not followed by '/' - return HTML_TAG_OPEN for speculative parsing
-                if (lexer->lookahead == '!') {
-                    razor_advance(lexer);
-                }
+            } else if (valid_symbols[HTML_TAG_OPEN]) {
+                if (lexer->lookahead == '!') razor_advance(lexer);
                 lexer->mark_end(lexer);
                 array_push(&scanner->context_stack, CONTEXT_HTML_TAG);
                 lexer->result_symbol = HTML_TAG_OPEN;
                 return true;
             }
-        } else {
-            bool has_content = false;
-            while (!lexer->eof(lexer)) {
-                if (lexer->lookahead == '<') {
-                    lexer->mark_end(lexer);
-                    razor_advance(lexer);
-                    if (lexer->lookahead == '/') {
-                        razor_advance(lexer);
-                        const char *tag = "textarea";
-                        int i = 0;
-                        bool matches = true;
-                        while (tag[i] && matches) {
-                            int32_t c = lexer->lookahead;
-                            int32_t lower_c = (c >= 'A' && c <= 'Z') ? c + 32 : c;
-                            if (lower_c != tag[i]) {
-                                matches = false;
-                            } else {
-                                razor_advance(lexer);
-                                i++;
-                            }
-                        }
-                        if (matches && i == 8 && is_end_tag_terminator(lexer->lookahead)) {
-                            break;  // Found closing tag
-                        }
-                    }
-                    has_content = true;
-                    lexer->mark_end(lexer);
-                } else {
-                    razor_advance(lexer);
-                    has_content = true;
-                    lexer->mark_end(lexer);
-                }
-            }
-            if (has_content) {
-                lexer->result_symbol = TEXTAREA_CONTENT;
-                return true;
-            }
-            return false;
+        } else if (scan_raw_text_content(lexer, "textarea", 8, TEXTAREA_CONTENT)) {
+            return true;
         }
     }
 
@@ -754,21 +649,13 @@ bool tree_sitter_razor_external_scanner_scan(void *payload, TSLexer *lexer, cons
     }
 
     // > closes HTML tag
-    DEBUG_PRINT("HTML_TAG_CLOSE check: valid=%d, in_html_tag=%d, lookahead='%c' (%d)\n",
-                valid_symbols[HTML_TAG_CLOSE], in_html_tag_context(scanner),
-                lexer->lookahead > 31 && lexer->lookahead < 127 ? lexer->lookahead : '?',
-                lexer->lookahead);
     if (valid_symbols[HTML_TAG_CLOSE] && in_html_tag_context(scanner)) {
-        // Skip whitespace before > (C# extras handle whitespace, but we need to skip it here)
-        while (is_whitespace(lexer->lookahead)) {
-            razor_skip(lexer);
-        }
+        while (is_whitespace(lexer->lookahead)) razor_skip(lexer);
         if (lexer->lookahead == '>') {
             razor_advance(lexer);
             lexer->mark_end(lexer);
             array_pop(&scanner->context_stack);
             lexer->result_symbol = HTML_TAG_CLOSE;
-            DEBUG_PRINT("  -> matched HTML_TAG_CLOSE\n");
             return true;
         }
     }
@@ -813,10 +700,10 @@ bool tree_sitter_razor_external_scanner_scan(void *payload, TSLexer *lexer, cons
         }
     }
 
-    // HTML text content - stops before keywords (else/catch/finally/where)
+    // HTML text content - stops before C# keywords (else/catch/finally/where)
     if (valid_symbols[HTML_TEXT_CONTENT] && !in_csharp_context(scanner)) {
         if (lexer->lookahead == '"' || lexer->lookahead == '\'') {
-            // Fall through - let grammar try string_literal
+            // Let grammar try string_literal
         } else {
         bool has_content = false;
         bool has_nonwhitespace = false;
@@ -827,6 +714,7 @@ bool tree_sitter_razor_external_scanner_scan(void *payload, TSLexer *lexer, cons
             if (lexer->lookahead == '<' || lexer->lookahead == '@') break;
             if (lexer->lookahead == '[' || lexer->lookahead == '(' || lexer->lookahead == '.') break;
             if (lexer->lookahead == '{' || lexer->lookahead == '}') break;
+            if (lexer->lookahead == '&') break;
 
             if (lexer->lookahead == '\n' || lexer->lookahead == '\r') {
                 razor_advance(lexer);
@@ -843,7 +731,11 @@ bool tree_sitter_razor_external_scanner_scan(void *payload, TSLexer *lexer, cons
                 continue;
             }
 
-            // Check for keywords that should stop text scanning
+            if (at_line_start && (valid_symbols[CSHARP_COMMENT] || valid_symbols[TOP_LEVEL_CSHARP_COMMENT]) && lexer->lookahead == '/') {
+                break;
+            }
+
+            // Stop before C# keywords
             bool check_keyword = false;
             char keyword_buf[8] = {0};
             int keyword_len = 0;
@@ -994,43 +886,17 @@ bool tree_sitter_razor_external_scanner_scan(void *payload, TSLexer *lexer, cons
         }
     }
 
-    // C# comments (only in C# context)
+    // C# comments
     if (valid_symbols[CSHARP_COMMENT] && in_csharp_context(scanner)) {
-        if (lexer->lookahead == '/') {
-            razor_advance(lexer);
-            if (lexer->lookahead == '/') {
-                razor_advance(lexer);
-                while (!lexer->eof(lexer) && lexer->lookahead != '\n' && lexer->lookahead != '\r') {
-                    razor_advance(lexer);
-                }
-                lexer->mark_end(lexer);
-                lexer->result_symbol = CSHARP_COMMENT;
-                return true;
-            } else if (lexer->lookahead == '*') {
-                razor_advance(lexer);
-                while (!lexer->eof(lexer)) {
-                    if (lexer->lookahead == '*') {
-                        razor_advance(lexer);
-                        if (lexer->lookahead == '/') {
-                            razor_advance(lexer);
-                            lexer->mark_end(lexer);
-                            lexer->result_symbol = CSHARP_COMMENT;
-                            return true;
-                        }
-                    } else {
-                        razor_advance(lexer);
-                    }
-                }
-                lexer->mark_end(lexer);
-                lexer->result_symbol = CSHARP_COMMENT;
-                return true;
-            }
-            return false;
-        }
+        if (scan_csharp_comment(lexer, CSHARP_COMMENT)) return true;
     }
 
-    // Razor comment as extra (only in C# context)
-    // This allows @* ... *@ to appear anywhere C# comments can appear
+    // Top-level C# comments (between control flow clauses like } // comment \n else)
+    if (valid_symbols[TOP_LEVEL_CSHARP_COMMENT] && !in_csharp_context(scanner)) {
+        if (scan_csharp_comment(lexer, TOP_LEVEL_CSHARP_COMMENT)) return true;
+    }
+
+    // Razor comment as extra in C# context
     if (valid_symbols[RAZOR_COMMENT_EXTRA] && in_csharp_context(scanner)) {
         while (is_whitespace(lexer->lookahead)) {
             razor_skip(lexer);
@@ -1141,15 +1007,10 @@ bool tree_sitter_razor_external_scanner_scan(void *payload, TSLexer *lexer, cons
         }
     }
 
-    // Text literal content - captures everything from @: to end of line
-    // Content will be re-parsed via tree-sitter injection to handle Razor/HTML
+    // Text literal content (@: to end of line)
     if (valid_symbols[TEXT_LITERAL_CONTENT]) {
         bool has_content = false;
-        while (!lexer->eof(lexer)) {
-            // Stop at newline (text literal is single-line only)
-            if (lexer->lookahead == '\r' || lexer->lookahead == '\n') {
-                break;
-            }
+        while (!lexer->eof(lexer) && lexer->lookahead != '\r' && lexer->lookahead != '\n') {
             razor_advance(lexer);
             has_content = true;
         }
