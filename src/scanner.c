@@ -5,8 +5,8 @@
 #include <string.h>
 #include "../tree-sitter-c-sharp/src/scanner.c"
 
-#ifdef DEBUG_SCANNER
 #include <stdio.h>
+#ifdef DEBUG_SCANNER
 #define DEBUG_PRINT(...) fprintf(stderr, __VA_ARGS__)
 #else
 #define DEBUG_PRINT(...)
@@ -22,16 +22,6 @@ enum RazorTokenType {
     RAZOR_BLOCK_OPEN,
     CSHARP_CONTEXT_CLOSE,
     CSHARP_COMMENT,
-    PREPROC_REGION,
-    PREPROC_ENDREGION,
-    PREPROC_LINE,
-    PREPROC_PRAGMA,
-    PREPROC_NULLABLE,
-    PREPROC_ERROR,
-    PREPROC_WARNING,
-    PREPROC_DEFINE,
-    PREPROC_UNDEF,
-    PREPROC_DIRECTIVE,
     SCRIPT_CONTENT,
     STYLE_CONTENT,
     TITLE_CONTENT,
@@ -357,6 +347,9 @@ bool tree_sitter_razor_external_scanner_scan(void *payload, TSLexer *lexer, cons
     if (scanner->context_stack.size > 0) {
         DEBUG_PRINT("  top context: %d\n", *array_back(&scanner->context_stack));
     }
+    DEBUG_PRINT("  valid: IMPL_END=%d TEXT_AT=%d HTML_TEXT=%d\n",
+                valid_symbols[IMPLICIT_EXPR_END], valid_symbols[TEXT_WITH_LITERAL_AT],
+                valid_symbols[HTML_TEXT_CONTENT]);
 
     // RAZOR_BLOCK_AT in C# context - must check early to beat main lexer's @ token
     if (valid_symbols[RAZOR_BLOCK_AT] && in_csharp_context(scanner)) {
@@ -386,13 +379,19 @@ bool tree_sitter_razor_external_scanner_scan(void *payload, TSLexer *lexer, cons
 
     // Implicit expression terminator (zero-width token)
     // Must check before whitespace skipping
+    // But if HTML_TAG_OPEN is valid and we see '<', let that handler run instead
     if (valid_symbols[IMPLICIT_EXPR_END] && !valid_symbols[RAZOR_BLOCK_OPEN]) {
         int32_t c = lexer->lookahead;
 
-        if (is_whitespace(c) ||
+        // If we see '<' and HTML_TAG_OPEN is valid, don't return IMPLICIT_EXPR_END here
+        // Let the HTML tag handler consume the '<' instead
+        if (c == '<' && valid_symbols[HTML_TAG_OPEN]) {
+            // Fall through to HTML tag handling
+        } else if (is_whitespace(c) ||
             c == '<' || c == '@' || c == '"' || c == '\'' ||
             c == '>' || c == '}' || c == ')' || c == ']' ||
             c == ',' || c == ';' || c == ':' || c == '&' ||
+            c == '/' || c == '#' ||  // URL path separator, hash for fragments
             lexer->eof(lexer)) {
             lexer->result_symbol = IMPLICIT_EXPR_END;
             return true;
@@ -434,13 +433,20 @@ bool tree_sitter_razor_external_scanner_scan(void *payload, TSLexer *lexer, cons
     }
 
     // @{ or @( or @* tokens
+    // Only check for @ tokens if we see @ (or whitespace that could precede @)
+    // But don't consume whitespace if HTML_TEXT_CONTENT is valid, as that whitespace
+    // might be part of text content
     bool check_at_tokens = valid_symbols[CSHARP_CODE_BLOCK_START] ||
                            valid_symbols[CSHARP_EXPLICIT_EXPR_START] ||
                            valid_symbols[RAZOR_COMMENT];
 
+    DEBUG_PRINT("  check_at_tokens=%d, lookahead='%c'\n", check_at_tokens, lexer->lookahead);
     if (check_at_tokens) {
-        while (is_whitespace(lexer->lookahead)) {
-            razor_skip(lexer);
+        if (!valid_symbols[HTML_TEXT_CONTENT]) {
+            while (is_whitespace(lexer->lookahead)) {
+                DEBUG_PRINT("  Skipping whitespace in check_at_tokens\n");
+                razor_skip(lexer);
+            }
         }
         if (lexer->lookahead == '@') {
             razor_advance(lexer);
@@ -484,15 +490,20 @@ bool tree_sitter_razor_external_scanner_scan(void *payload, TSLexer *lexer, cons
     }
 
     // Using directive lookahead (zero-width token to disambiguate @using forms)
+    // Don't match if HTML_TAG_OPEN is valid and we're at '<' (after skipping whitespace)
     if (valid_symbols[USING_NOT_ALIAS] && scanner->context_stack.size == 0) {
         while (is_whitespace(lexer->lookahead)) {
             razor_skip(lexer);
         }
-        if (lexer->lookahead != '=' && lexer->lookahead != '.') {
+        // After skipping whitespace, check if we're at '<' with HTML_TAG_OPEN valid
+        if (lexer->lookahead == '<' && valid_symbols[HTML_TAG_OPEN]) {
+            // Fall through to HTML tag handling
+        } else if (lexer->lookahead != '=' && lexer->lookahead != '.') {
             lexer->result_symbol = USING_NOT_ALIAS;
             return true;
+        } else {
+            return false;
         }
-        return false;
     }
 
     // Raw text content (script, style, title, textarea)
@@ -561,91 +572,100 @@ bool tree_sitter_razor_external_scanner_scan(void *payload, TSLexer *lexer, cons
     }
 
     // HTML tag tokens (<, </, <!, <!--, <!DOCTYPE)
-    if ((valid_symbols[HTML_TAG_OPEN] || valid_symbols[HTML_END_TAG_OPEN] ||
-         valid_symbols[HTML_COMMENT] || valid_symbols[DOCTYPE]) && lexer->lookahead == '<') {
-        razor_advance(lexer);
-
-        if (lexer->lookahead == '/' && valid_symbols[HTML_END_TAG_OPEN]) {
+    // Skip leading whitespace for end tags (e.g., newlines before </div>)
+    if (valid_symbols[HTML_TAG_OPEN] || valid_symbols[HTML_END_TAG_OPEN] ||
+        valid_symbols[HTML_COMMENT] || valid_symbols[DOCTYPE]) {
+        // For end tags, skip whitespace first - BUT only if HTML_TEXT_CONTENT is not valid
+        // Otherwise the whitespace might need to be returned as text
+        while (valid_symbols[HTML_END_TAG_OPEN] && !valid_symbols[HTML_TEXT_CONTENT] &&
+               is_whitespace(lexer->lookahead)) {
+            razor_skip(lexer);
+        }
+        if (lexer->lookahead == '<') {
             razor_advance(lexer);
+
+            if (lexer->lookahead == '/' && valid_symbols[HTML_END_TAG_OPEN]) {
+                razor_advance(lexer);
+                if (lexer->lookahead == '!') {
+                    razor_advance(lexer);
+                }
+                lexer->mark_end(lexer);
+                array_push(&scanner->context_stack, CONTEXT_HTML_TAG);
+                lexer->result_symbol = HTML_END_TAG_OPEN;
+                return true;
+            }
+
             if (lexer->lookahead == '!') {
                 razor_advance(lexer);
-            }
-            lexer->mark_end(lexer);
-            array_push(&scanner->context_stack, CONTEXT_HTML_TAG);
-            lexer->result_symbol = HTML_END_TAG_OPEN;
-            return true;
-        }
-
-        if (lexer->lookahead == '!') {
-            razor_advance(lexer);
-            if (lexer->lookahead == '-' && valid_symbols[HTML_COMMENT]) {
-                razor_advance(lexer);
-                if (lexer->lookahead == '-') {
+                if (lexer->lookahead == '-' && valid_symbols[HTML_COMMENT]) {
                     razor_advance(lexer);
-                    while (!lexer->eof(lexer)) {
-                        if (lexer->lookahead == '-') {
-                            razor_advance(lexer);
+                    if (lexer->lookahead == '-') {
+                        razor_advance(lexer);
+                        while (!lexer->eof(lexer)) {
                             if (lexer->lookahead == '-') {
                                 razor_advance(lexer);
-                                if (lexer->lookahead == '>') {
+                                if (lexer->lookahead == '-') {
                                     razor_advance(lexer);
-                                    lexer->mark_end(lexer);
-                                    lexer->result_symbol = HTML_COMMENT;
-                                    return true;
+                                    if (lexer->lookahead == '>') {
+                                        razor_advance(lexer);
+                                        lexer->mark_end(lexer);
+                                        lexer->result_symbol = HTML_COMMENT;
+                                        return true;
+                                    }
                                 }
+                            } else {
+                                razor_advance(lexer);
                             }
+                        }
+                        lexer->mark_end(lexer);
+                        lexer->result_symbol = HTML_COMMENT;
+                        return true;
+                    }
+                    return false;
+                }
+                if ((lexer->lookahead == 'd' || lexer->lookahead == 'D') && valid_symbols[DOCTYPE]) {
+                    razor_advance(lexer);
+                    const char *expected = "octype";
+                    bool matched = true;
+                    for (int i = 0; expected[i] && matched; i++) {
+                        if (lexer->lookahead != expected[i] &&
+                            lexer->lookahead != expected[i] - 32 &&
+                            lexer->lookahead != expected[i] + 32) {
+                            matched = false;
                         } else {
                             razor_advance(lexer);
                         }
                     }
+                    if (matched) {
+                        while (!lexer->eof(lexer) && lexer->lookahead != '>') {
+                            razor_advance(lexer);
+                        }
+                        if (lexer->lookahead == '>') {
+                            razor_advance(lexer);
+                        }
+                        lexer->mark_end(lexer);
+                        lexer->result_symbol = DOCTYPE;
+                        return true;
+                    }
+                }
+                if (valid_symbols[HTML_TAG_OPEN]) {
                     lexer->mark_end(lexer);
-                    lexer->result_symbol = HTML_COMMENT;
+                    array_push(&scanner->context_stack, CONTEXT_HTML_TAG);
+                    lexer->result_symbol = HTML_TAG_OPEN;
                     return true;
                 }
                 return false;
             }
-            if ((lexer->lookahead == 'd' || lexer->lookahead == 'D') && valid_symbols[DOCTYPE]) {
-                razor_advance(lexer);
-                const char *expected = "octype";
-                bool matched = true;
-                for (int i = 0; expected[i] && matched; i++) {
-                    if (lexer->lookahead != expected[i] &&
-                        lexer->lookahead != expected[i] - 32 &&
-                        lexer->lookahead != expected[i] + 32) {
-                        matched = false;
-                    } else {
-                        razor_advance(lexer);
-                    }
-                }
-                if (matched) {
-                    while (!lexer->eof(lexer) && lexer->lookahead != '>') {
-                        razor_advance(lexer);
-                    }
-                    if (lexer->lookahead == '>') {
-                        razor_advance(lexer);
-                    }
-                    lexer->mark_end(lexer);
-                    lexer->result_symbol = DOCTYPE;
-                    return true;
-                }
-            }
+
             if (valid_symbols[HTML_TAG_OPEN]) {
                 lexer->mark_end(lexer);
                 array_push(&scanner->context_stack, CONTEXT_HTML_TAG);
                 lexer->result_symbol = HTML_TAG_OPEN;
                 return true;
             }
+
             return false;
         }
-
-        if (valid_symbols[HTML_TAG_OPEN]) {
-            lexer->mark_end(lexer);
-            array_push(&scanner->context_stack, CONTEXT_HTML_TAG);
-            lexer->result_symbol = HTML_TAG_OPEN;
-            return true;
-        }
-
-        return false;
     }
 
     // > closes HTML tag
@@ -661,7 +681,9 @@ bool tree_sitter_razor_external_scanner_scan(void *payload, TSLexer *lexer, cons
     }
 
     // Text with literal @ (email addresses like user@example.com)
+    DEBUG_PRINT("  Before TEXT_AT: lookahead='%c' (%d)\n", lexer->lookahead, lexer->lookahead);
     if (valid_symbols[TEXT_WITH_LITERAL_AT] && !valid_symbols[HTML_TEXT_CONTENT]) {
+        DEBUG_PRINT("  TEXT_AT block entered\n");
         bool found_literal_at = false;
         bool last_was_word = false;
 
@@ -700,99 +722,312 @@ bool tree_sitter_razor_external_scanner_scan(void *payload, TSLexer *lexer, cons
         }
     }
 
+    // Top-level C# comments (between control flow clauses like } // comment \n else)
+    // Must check before HTML_TEXT_CONTENT to handle \n// correctly
+    // BUT only skip whitespace if we're NOT inside an element (HTML_END_TAG_OPEN not valid)
+    // When inside an element, whitespace might need to be preserved as text
+    if (valid_symbols[TOP_LEVEL_CSHARP_COMMENT] && !in_csharp_context(scanner)) {
+        if (!valid_symbols[HTML_END_TAG_OPEN]) {
+            while (is_whitespace(lexer->lookahead)) {
+                razor_skip(lexer);
+            }
+        }
+        if (scan_csharp_comment(lexer, TOP_LEVEL_CSHARP_COMMENT)) return true;
+    }
+
+    // Top-level Razor comments (between control flow clauses)
+    // Note: Only handles @* comments; regular @ expressions are handled by the grammar
+    // Only skip whitespace if HTML_TEXT is NOT valid - otherwise let HTML_TEXT handler decide
+    if (valid_symbols[RAZOR_COMMENT] && !in_csharp_context(scanner) && !in_html_tag_context(scanner)) {
+        if (!valid_symbols[HTML_TEXT_CONTENT]) {
+            while (is_whitespace(lexer->lookahead)) {
+                razor_skip(lexer);
+            }
+        }
+        if (lexer->lookahead == '@') {
+            // Peek ahead to check for comment without consuming @
+            lexer->mark_end(lexer);
+            razor_advance(lexer);
+            if (lexer->lookahead == '*') {
+                // It's a Razor comment - consume and scan
+                razor_advance(lexer);
+                while (!lexer->eof(lexer)) {
+                    if (lexer->lookahead == '*') {
+                        razor_advance(lexer);
+                        if (lexer->lookahead == '@') {
+                            razor_advance(lexer);
+                            lexer->mark_end(lexer);
+                            lexer->result_symbol = RAZOR_COMMENT;
+                            return true;
+                        }
+                    } else {
+                        razor_advance(lexer);
+                    }
+                }
+                lexer->mark_end(lexer);
+                lexer->result_symbol = RAZOR_COMMENT;
+                return true;
+            }
+            // Not a comment - return false without consuming the @
+            // The grammar will handle @ as a Razor expression
+            return false;
+        }
+    }
+
     // HTML text content - stops before C# keywords (else/catch/finally/where)
-    if (valid_symbols[HTML_TEXT_CONTENT] && !in_csharp_context(scanner)) {
+    // Note: Works in both HTML and C# context because elements inside Razor blocks need text scanning
+    if (valid_symbols[HTML_TEXT_CONTENT]) {
+        DEBUG_PRINT("  HTML_TEXT: starting, lookahead='%c' (%d)\n", lexer->lookahead, lexer->lookahead);
         if (lexer->lookahead == '"' || lexer->lookahead == '\'') {
             // Let grammar try string_literal
-        } else {
-        bool has_content = false;
-        bool has_nonwhitespace = false;
-        bool found_keyword = false;
-        bool at_line_start = true;
+            DEBUG_PRINT("  HTML_TEXT: quote char, skipping\n");
+        } else if (is_whitespace(lexer->lookahead)) {
+            // At whitespace - we MUST handle this to ensure whitespace before keywords
+            // doesn't become a separate text token that blocks keyword matching
 
-        while (!lexer->eof(lexer)) {
-            if (lexer->lookahead == '<' || lexer->lookahead == '@') break;
-            if (lexer->lookahead == '[' || lexer->lookahead == '(' || lexer->lookahead == '.') break;
-            if (lexer->lookahead == '{' || lexer->lookahead == '}') break;
-            if (lexer->lookahead == '&') break;
-
-            if (lexer->lookahead == '\n' || lexer->lookahead == '\r') {
+            // First, consume the whitespace
+            while (is_whitespace(lexer->lookahead)) {
                 razor_advance(lexer);
-                has_content = true;
+            }
+
+            // Now check what follows the whitespace
+            if (lexer->lookahead == '"' || lexer->lookahead == '\'') {
+                // Whitespace followed by quote - let grammar handle string literal
+                // Don't return the whitespace; it's just formatting before a directive arg
+                DEBUG_PRINT("  HTML_TEXT: whitespace then quote, skipping\n");
+                return false;
+            }
+            if (lexer->lookahead == '/' && (valid_symbols[CSHARP_COMMENT] || valid_symbols[TOP_LEVEL_CSHARP_COMMENT])) {
+                // Whitespace followed by / - might be a C# comment, skip whitespace
+                DEBUG_PRINT("  HTML_TEXT: whitespace then slash, skipping for comment\n");
+                return false;
+            }
+            if (lexer->lookahead == '@') {
+                // Peek ahead to see if it's @* (Razor comment)
                 lexer->mark_end(lexer);
-                at_line_start = true;
-                continue;
+                razor_advance(lexer);  // consume @
+                if (lexer->lookahead == '*' && valid_symbols[RAZOR_COMMENT]) {
+                    // It's a Razor comment - scan and return it directly
+                    DEBUG_PRINT("  HTML_TEXT: whitespace then @*, scanning comment\n");
+                    razor_advance(lexer);  // consume *
+                    while (!lexer->eof(lexer)) {
+                        if (lexer->lookahead == '*') {
+                            razor_advance(lexer);
+                            if (lexer->lookahead == '@') {
+                                razor_advance(lexer);
+                                lexer->mark_end(lexer);
+                                lexer->result_symbol = RAZOR_COMMENT;
+                                return true;
+                            }
+                        } else {
+                            razor_advance(lexer);
+                        }
+                    }
+                    lexer->mark_end(lexer);
+                    lexer->result_symbol = RAZOR_COMMENT;
+                    return true;
+                }
+                // Not a comment - the @ is a Razor expression
+                // But we're inside an element (HTML_END_TAG_OPEN valid), so return whitespace as text
+                // and let the grammar handle the @ on the next call
+                if (valid_symbols[HTML_END_TAG_OPEN]) {
+                    // We consumed @ but that's fine - mark_end was called before @
+                    // Return just the whitespace as text
+                    DEBUG_PRINT("  HTML_TEXT: whitespace then @ inside element, returning whitespace\n");
+                    lexer->result_symbol = HTML_TEXT_CONTENT;
+                    return true;
+                }
+                // At top level - skip whitespace for the Razor expression
+                DEBUG_PRINT("  HTML_TEXT: whitespace then @ at top level, skipping for Razor\n");
+                return false;
             }
 
-            if (at_line_start && is_whitespace(lexer->lookahead)) {
-                razor_advance(lexer);
-                has_content = true;
+            // Check for C# keywords (else/catch/finally/where) that could continue a statement
+            if (lexer->lookahead == 'e' || lexer->lookahead == 'c' || lexer->lookahead == 'f' ||
+                lexer->lookahead == 'w') {
+                // Save position after whitespace (before potential keyword)
                 lexer->mark_end(lexer);
-                continue;
-            }
 
-            if (at_line_start && (valid_symbols[CSHARP_COMMENT] || valid_symbols[TOP_LEVEL_CSHARP_COMMENT]) && lexer->lookahead == '/') {
-                break;
-            }
-
-            // Stop before C# keywords
-            bool check_keyword = false;
-            char keyword_buf[8] = {0};
-            int keyword_len = 0;
-            int32_t start_char = lexer->lookahead;
-
-            if (at_line_start && (start_char == 'e' || start_char == 'c' || start_char == 'f')) {
-                check_keyword = true;
-            }
-            if (start_char == 'w' && !has_nonwhitespace) {
-                check_keyword = true;
-            }
-
-            if (check_keyword) {
-                lexer->mark_end(lexer);
+                char keyword_buf[8] = {0};
+                int keyword_len = 0;
+                int32_t start_char = lexer->lookahead;
                 while (keyword_len < 7 && is_identifier_char(lexer->lookahead)) {
                     keyword_buf[keyword_len++] = (char)lexer->lookahead;
                     razor_advance(lexer);
                 }
                 keyword_buf[keyword_len] = '\0';
 
-                bool is_keyword = false;
                 if (!is_identifier_char(lexer->lookahead)) {
-                    if (at_line_start) {
-                        if (start_char == 'e' && strcmp(keyword_buf, "else") == 0) is_keyword = true;
-                        else if (start_char == 'c' && strcmp(keyword_buf, "catch") == 0) is_keyword = true;
-                        else if (start_char == 'f' && strcmp(keyword_buf, "finally") == 0) is_keyword = true;
+                    if ((start_char == 'e' && strcmp(keyword_buf, "else") == 0) ||
+                        (start_char == 'c' && strcmp(keyword_buf, "catch") == 0) ||
+                        (start_char == 'f' && strcmp(keyword_buf, "finally") == 0) ||
+                        (start_char == 'w' && strcmp(keyword_buf, "where") == 0)) {
+                        // Keyword found - return false so grammar can match the keyword
+                        // Note: whitespace is NOT returned as text; it's skipped as formatting
+                        DEBUG_PRINT("  HTML_TEXT: whitespace then keyword %s, skipping\n", keyword_buf);
+                        return false;
                     }
-                    if (start_char == 'w' && strcmp(keyword_buf, "where") == 0) is_keyword = true;
                 }
 
-                if (is_keyword) {
-                    found_keyword = true;
+                // Not a keyword - return whitespace + word as text
+                DEBUG_PRINT("  HTML_TEXT: whitespace then non-keyword word, returning as text\n");
+                lexer->mark_end(lexer);  // Include the word we just read
+                lexer->result_symbol = HTML_TEXT_CONTENT;
+                return true;
+            }
+
+            // Check what follows the whitespace
+            if (lexer->lookahead == '}' || lexer->lookahead == '{') {
+                // Whitespace followed by brace - don't return text, let grammar handle block close
+                DEBUG_PRINT("  HTML_TEXT: whitespace then brace, skipping\n");
+                return false;
+            }
+
+            // At top level (HTML_END_TAG_OPEN not valid), skip whitespace before elements
+            // This ensures <br>\n<hr> doesn't have text nodes between elements
+            if (!valid_symbols[HTML_END_TAG_OPEN] && lexer->lookahead == '<') {
+                DEBUG_PRINT("  HTML_TEXT: top-level whitespace before tag, skipping\n");
+                return false;
+            }
+
+            // Inside elements (HTML_END_TAG_OPEN valid), return whitespace as text
+            // This ensures spaces between character references like &amp; &lt; are captured
+            lexer->mark_end(lexer);
+            DEBUG_PRINT("  HTML_TEXT: whitespace as text (inside element=%d)\n",
+                        valid_symbols[HTML_END_TAG_OPEN]);
+            lexer->result_symbol = HTML_TEXT_CONTENT;
+            return true;
+        } else {
+            bool has_content = false;
+            bool has_nonwhitespace = false;
+            bool found_keyword = false;
+            bool at_line_start = true;
+
+            bool last_was_email_char = false;  // Track if previous char was email-like
+
+            while (!lexer->eof(lexer)) {
+                DEBUG_PRINT("  HTML_TEXT loop: lookahead='%c' (%d), at_line_start=%d\n", lexer->lookahead, lexer->lookahead, at_line_start);
+                if (lexer->lookahead == '<') break;
+                if (lexer->lookahead == '[' || lexer->lookahead == '(' || lexer->lookahead == '.') break;
+                if (lexer->lookahead == '{' || lexer->lookahead == '}') break;
+                if (lexer->lookahead == '&') break;
+
+                // Handle @ - check if it's part of an email address
+                if (lexer->lookahead == '@') {
+                    if (last_was_email_char) {
+                        // Might be email - look ahead to see if followed by identifier
+                        razor_advance(lexer);
+                        if (is_email_char(lexer->lookahead)) {
+                            // It's an email pattern - consume the domain part
+                            while (is_email_char(lexer->lookahead) ||
+                                   lexer->lookahead == '.' ||
+                                   lexer->lookahead == '-') {
+                                razor_advance(lexer);
+                            }
+                            has_content = true;
+                            has_nonwhitespace = true;
+                            lexer->mark_end(lexer);
+                            last_was_email_char = false;
+                            at_line_start = false;
+                            continue;
+                        }
+                    }
+                    break;  // Not an email - stop before @
+                }
+
+                if (lexer->lookahead == '\n' || lexer->lookahead == '\r') {
+                    razor_advance(lexer);
+                    has_content = true;
+                    lexer->mark_end(lexer);
+                    at_line_start = true;
+                    last_was_email_char = false;
+                    continue;
+                }
+
+                // Whitespace handling: consume and track, but only set has_nonwhitespace
+                // if we've already seen non-whitespace content on this line
+                if (is_whitespace(lexer->lookahead)) {
+                    razor_advance(lexer);
+                    has_content = true;
+                    // Only set has_nonwhitespace if this is mid-line whitespace (not leading)
+                    // This ensures "  else" at line start doesn't return whitespace as text
+                    if (!at_line_start) {
+                        has_nonwhitespace = true;
+                    }
+                    lexer->mark_end(lexer);
+                    last_was_email_char = false;
+                    continue;
+                }
+
+                if (at_line_start && (valid_symbols[CSHARP_COMMENT] || valid_symbols[TOP_LEVEL_CSHARP_COMMENT]) && lexer->lookahead == '/') {
                     break;
                 }
 
+                // Stop before C# keywords
+                bool check_keyword = false;
+                char keyword_buf[8] = {0};
+                int keyword_len = 0;
+                int32_t start_char = lexer->lookahead;
+
+                if (at_line_start && (start_char == 'e' || start_char == 'c' || start_char == 'f')) {
+                    check_keyword = true;
+                }
+                if (start_char == 'w' && !has_nonwhitespace) {
+                    check_keyword = true;
+                }
+
+                if (check_keyword) {
+                    lexer->mark_end(lexer);
+                    while (keyword_len < 7 && is_identifier_char(lexer->lookahead)) {
+                        keyword_buf[keyword_len++] = (char)lexer->lookahead;
+                        razor_advance(lexer);
+                    }
+                    keyword_buf[keyword_len] = '\0';
+
+                    bool is_keyword = false;
+                    if (!is_identifier_char(lexer->lookahead)) {
+                        if (at_line_start) {
+                            if (start_char == 'e' && strcmp(keyword_buf, "else") == 0) is_keyword = true;
+                            else if (start_char == 'c' && strcmp(keyword_buf, "catch") == 0) is_keyword = true;
+                            else if (start_char == 'f' && strcmp(keyword_buf, "finally") == 0) is_keyword = true;
+                        }
+                        if (start_char == 'w' && strcmp(keyword_buf, "where") == 0) is_keyword = true;
+                    }
+
+                    if (is_keyword) {
+                        DEBUG_PRINT("  Found keyword: %s\n", keyword_buf);
+                        found_keyword = true;
+                        break;
+                    }
+
+                    has_content = true;
+                    has_nonwhitespace = true;
+                    lexer->mark_end(lexer);
+                    at_line_start = false;
+                    last_was_email_char = is_email_char(keyword_buf[keyword_len - 1]);
+                    continue;
+                }
+
+                last_was_email_char = is_email_char(lexer->lookahead);
+                razor_advance(lexer);
                 has_content = true;
                 has_nonwhitespace = true;
                 lexer->mark_end(lexer);
                 at_line_start = false;
-                continue;
             }
 
-            razor_advance(lexer);
-            has_content = true;
-            has_nonwhitespace = true;
-            lexer->mark_end(lexer);
-            at_line_start = false;
-        }
+            if (found_keyword) {
+                DEBUG_PRINT("  HTML_TEXT returning false (found keyword, has_content=%d, has_nonws=%d)\n", has_content, has_nonwhitespace);
+                return false;
+            }
 
-        if (found_keyword) {
-            return false;
-        }
-
-        if (has_nonwhitespace) {
-            lexer->result_symbol = HTML_TEXT_CONTENT;
-            return true;
-        }
+            if (has_nonwhitespace) {
+                DEBUG_PRINT("  HTML_TEXT returning true (has_nonwhitespace)\n");
+                lexer->result_symbol = HTML_TEXT_CONTENT;
+                return true;
+            } else if (has_content) {
+                DEBUG_PRINT("  HTML_TEXT returning false (only whitespace, has_content=%d)\n", has_content);
+            }
         }
     }
 
@@ -891,10 +1126,7 @@ bool tree_sitter_razor_external_scanner_scan(void *payload, TSLexer *lexer, cons
         if (scan_csharp_comment(lexer, CSHARP_COMMENT)) return true;
     }
 
-    // Top-level C# comments (between control flow clauses like } // comment \n else)
-    if (valid_symbols[TOP_LEVEL_CSHARP_COMMENT] && !in_csharp_context(scanner)) {
-        if (scan_csharp_comment(lexer, TOP_LEVEL_CSHARP_COMMENT)) return true;
-    }
+    // Note: TOP_LEVEL_CSHARP_COMMENT is handled earlier, before HTML_TEXT_CONTENT
 
     // Razor comment as extra in C# context
     if (valid_symbols[RAZOR_COMMENT_EXTRA] && in_csharp_context(scanner)) {
@@ -922,87 +1154,6 @@ bool tree_sitter_razor_external_scanner_scan(void *payload, TSLexer *lexer, cons
                 lexer->result_symbol = RAZOR_COMMENT_EXTRA;
                 return true;
             }
-            return false;
-        }
-    }
-
-    // C# preprocessor directives (only in C# context)
-    // Note: #if/#else/#elif/#endif are handled by C#'s grammar
-    if (in_csharp_context(scanner) && lexer->lookahead == '#') {
-        bool any_preproc_valid = valid_symbols[PREPROC_REGION] ||
-                                  valid_symbols[PREPROC_ENDREGION] ||
-                                  valid_symbols[PREPROC_LINE] ||
-                                  valid_symbols[PREPROC_PRAGMA] ||
-                                  valid_symbols[PREPROC_NULLABLE] ||
-                                  valid_symbols[PREPROC_ERROR] ||
-                                  valid_symbols[PREPROC_WARNING] ||
-                                  valid_symbols[PREPROC_DEFINE] ||
-                                  valid_symbols[PREPROC_UNDEF] ||
-                                  valid_symbols[PREPROC_DIRECTIVE];
-
-        if (any_preproc_valid) {
-            lexer->mark_end(lexer);
-            razor_advance(lexer);
-
-            while (lexer->lookahead == ' ' || lexer->lookahead == '\t') {
-                razor_advance(lexer);
-            }
-
-            char keyword[16] = {0};
-            int keyword_len = 0;
-            while (keyword_len < 15 && is_identifier_char(lexer->lookahead)) {
-                keyword[keyword_len++] = (char)lexer->lookahead;
-                razor_advance(lexer);
-            }
-            keyword[keyword_len] = '\0';
-            lexer->mark_end(lexer);
-
-            if (valid_symbols[PREPROC_REGION] && strcmp(keyword, "region") == 0) {
-                lexer->result_symbol = PREPROC_REGION;
-                return true;
-            }
-            if (valid_symbols[PREPROC_ENDREGION] && strcmp(keyword, "endregion") == 0) {
-                lexer->result_symbol = PREPROC_ENDREGION;
-                return true;
-            }
-            if (valid_symbols[PREPROC_LINE] && strcmp(keyword, "line") == 0) {
-                lexer->result_symbol = PREPROC_LINE;
-                return true;
-            }
-            if (valid_symbols[PREPROC_PRAGMA] && strcmp(keyword, "pragma") == 0) {
-                lexer->result_symbol = PREPROC_PRAGMA;
-                return true;
-            }
-            if (valid_symbols[PREPROC_NULLABLE] && strcmp(keyword, "nullable") == 0) {
-                lexer->result_symbol = PREPROC_NULLABLE;
-                return true;
-            }
-            if (valid_symbols[PREPROC_ERROR] && strcmp(keyword, "error") == 0) {
-                lexer->result_symbol = PREPROC_ERROR;
-                return true;
-            }
-            if (valid_symbols[PREPROC_WARNING] && strcmp(keyword, "warning") == 0) {
-                lexer->result_symbol = PREPROC_WARNING;
-                return true;
-            }
-            if (valid_symbols[PREPROC_DEFINE] && strcmp(keyword, "define") == 0) {
-                lexer->result_symbol = PREPROC_DEFINE;
-                return true;
-            }
-            if (valid_symbols[PREPROC_UNDEF] && strcmp(keyword, "undef") == 0) {
-                lexer->result_symbol = PREPROC_UNDEF;
-                return true;
-            }
-
-            if (valid_symbols[PREPROC_DIRECTIVE] && keyword_len > 0 &&
-                strcmp(keyword, "if") != 0 &&
-                strcmp(keyword, "else") != 0 &&
-                strcmp(keyword, "elif") != 0 &&
-                strcmp(keyword, "endif") != 0) {
-                lexer->result_symbol = PREPROC_DIRECTIVE;
-                return true;
-            }
-
             return false;
         }
     }

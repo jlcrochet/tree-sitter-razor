@@ -273,3 +273,34 @@ Razor comment in array initializer
                   (argument
                     (string_literal
                       (string_literal_content))))))))))))
+
+================================================================================
+Razor comment after if in element
+================================================================================
+<div>
+	@if (true) {
+		<p>Inner</p>
+	}
+	@* comment *@
+</div>
+--------------------------------------------------------------------------------
+
+(compilation_unit
+  (element
+    (start_tag
+      (tag_name))
+    (text)
+    (razor_statement
+      (if_statement
+        (boolean_literal)
+        (razor_block
+          (element
+            (start_tag
+              (tag_name))
+            (text)
+            (end_tag
+              (tag_name))))))
+    (razor_comment)
+    (text)
+    (end_tag
+      (tag_name))))

@@ -28,9 +28,8 @@ Using directive
 (compilation_unit
   (razor_using_directive
     (qualified_name
-      (qualified_name
-        (identifier)
-        (identifier))
+      (identifier)
+      (identifier)
       (identifier))))
 
 ================================================================================

@@ -5121,12 +5121,6 @@
     }
   },
   {
-    "type": "preproc_directive",
-    "named": true,
-    "extra": true,
-    "fields": {}
-  },
-  {
     "type": "preproc_elif",
     "named": true,
     "fields": {
@@ -5688,7 +5682,7 @@
     "fields": {
       "name": {
         "multiple": false,
-        "required": true,
+        "required": false,
         "types": [
           {
             "type": "generic_name",
@@ -5702,7 +5696,7 @@
       },
       "qualifier": {
         "multiple": false,
-        "required": true,
+        "required": false,
         "types": [
           {
             "type": "alias_qualified_name",
@@ -5722,6 +5716,16 @@
           }
         ]
       }
+    },
+    "children": {
+      "multiple": true,
+      "required": false,
+      "types": [
+        {
+          "type": "identifier",
+          "named": true
+        }
+      ]
     }
   },
   {
@@ -5898,6 +5902,10 @@
           "named": true
         },
         {
+          "type": "preproc_directive",
+          "named": true
+        },
+        {
           "type": "razor_comment",
           "named": true
         },
@@ -5942,6 +5950,10 @@
         },
         {
           "type": "global_attribute",
+          "named": true
+        },
+        {
+          "type": "preproc_directive",
           "named": true
         },
         {
@@ -6477,6 +6489,10 @@
         },
         {
           "type": "pattern",
+          "named": true
+        },
+        {
+          "type": "preproc_directive",
           "named": true
         },
         {
@@ -7906,10 +7922,6 @@
     }
   },
   {
-    "type": "\n",
-    "named": false
-  },
-  {
     "type": "!",
     "named": false
   },
@@ -8591,6 +8603,10 @@
   },
   {
     "type": "preproc_arg",
+    "named": true
+  },
+  {
+    "type": "preproc_directive",
     "named": true
   },
   {
