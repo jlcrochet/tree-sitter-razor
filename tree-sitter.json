@@ -10,6 +10,9 @@
         "cshtml",
         "razor"
       ],
+      "external-files": [
+        "tree-sitter-c-sharp/src/scanner.c"
+      ],
       "injection-regex": "^razor$",
       "class-name": "TreeSitterRazor"
     }
