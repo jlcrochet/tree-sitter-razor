@@ -1935,6 +1935,10 @@
         "required": false,
         "types": [
           {
+            "type": "boolean_literal",
+            "named": true
+          },
+          {
             "type": "conditional_access_expression",
             "named": true
           },
@@ -1952,6 +1956,10 @@
           },
           {
             "type": "member_access_expression",
+            "named": true
+          },
+          {
+            "type": "null_literal",
             "named": true
           },
           {
@@ -2621,6 +2629,10 @@
         "required": true,
         "types": [
           {
+            "type": "boolean_literal",
+            "named": true
+          },
+          {
             "type": "conditional_access_expression",
             "named": true
           },
@@ -2642,6 +2654,10 @@
           },
           {
             "type": "member_access_expression",
+            "named": true
+          },
+          {
+            "type": "null_literal",
             "named": true
           },
           {
@@ -3894,6 +3910,10 @@
         "required": true,
         "types": [
           {
+            "type": "boolean_literal",
+            "named": true
+          },
+          {
             "type": "conditional_access_expression",
             "named": true
           },
@@ -3915,6 +3935,10 @@
           },
           {
             "type": "member_access_expression",
+            "named": true
+          },
+          {
+            "type": "null_literal",
             "named": true
           },
           {
@@ -4318,6 +4342,10 @@
             "named": true
           },
           {
+            "type": "boolean_literal",
+            "named": true
+          },
+          {
             "type": "conditional_access_expression",
             "named": true
           },
@@ -4343,6 +4371,10 @@
           },
           {
             "type": "member_access_expression",
+            "named": true
+          },
+          {
+            "type": "null_literal",
             "named": true
           },
           {
@@ -5074,6 +5106,10 @@
         "required": false,
         "types": [
           {
+            "type": "boolean_literal",
+            "named": true
+          },
+          {
             "type": "conditional_access_expression",
             "named": true
           },
@@ -5091,6 +5127,10 @@
           },
           {
             "type": "member_access_expression",
+            "named": true
+          },
+          {
+            "type": "null_literal",
             "named": true
           },
           {

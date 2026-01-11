@@ -14202,27 +14202,7 @@
         },
         {
           "type": "SYMBOL",
-          "name": "html_character_reference"
-        },
-        {
-          "type": "SYMBOL",
-          "name": "invalid_character_reference"
-        },
-        {
-          "type": "SYMBOL",
-          "name": "razor_explicit_expression"
-        },
-        {
-          "type": "SYMBOL",
-          "name": "razor_implicit_expression"
-        },
-        {
-          "type": "SYMBOL",
-          "name": "escaped_at"
-        },
-        {
-          "type": "STRING",
-          "value": "&"
+          "name": "_escapable_raw_text_content"
         }
       ]
     },
@@ -14359,6 +14339,15 @@
           "named": true,
           "value": "escapable_raw_text"
         },
+        {
+          "type": "SYMBOL",
+          "name": "_escapable_raw_text_content"
+        }
+      ]
+    },
+    "_escapable_raw_text_content": {
+      "type": "CHOICE",
+      "members": [
         {
           "type": "SYMBOL",
           "name": "html_character_reference"
@@ -15800,7 +15789,7 @@
       "members": [
         {
           "type": "SYMBOL",
-          "name": "_razor_primary_expression"
+          "name": "identifier"
         },
         {
           "type": "SYMBOL",
@@ -15809,15 +15798,6 @@
         {
           "type": "SYMBOL",
           "name": "null_literal"
-        }
-      ]
-    },
-    "_razor_primary_expression": {
-      "type": "CHOICE",
-      "members": [
-        {
-          "type": "SYMBOL",
-          "name": "identifier"
         },
         {
           "type": "ALIAS",
@@ -15899,7 +15879,7 @@
             "name": "expression",
             "content": {
               "type": "SYMBOL",
-              "name": "_razor_primary_expression"
+              "name": "_razor_access_chain"
             }
           },
           {
@@ -15931,7 +15911,7 @@
             "name": "function",
             "content": {
               "type": "SYMBOL",
-              "name": "_razor_primary_expression"
+              "name": "_razor_access_chain"
             }
           },
           {
@@ -16017,7 +15997,7 @@
             "name": "expression",
             "content": {
               "type": "SYMBOL",
-              "name": "_razor_primary_expression"
+              "name": "_razor_access_chain"
             }
           },
           {
@@ -16060,7 +16040,7 @@
             "name": "expression",
             "content": {
               "type": "SYMBOL",
-              "name": "_razor_primary_expression"
+              "name": "_razor_access_chain"
             }
           },
           {
@@ -16092,7 +16072,7 @@
             "name": "expression",
             "content": {
               "type": "SYMBOL",
-              "name": "_razor_primary_expression"
+              "name": "_razor_access_chain"
             }
           },
           {
@@ -16130,7 +16110,7 @@
             "name": "argument",
             "content": {
               "type": "SYMBOL",
-              "name": "_razor_primary_expression"
+              "name": "_razor_access_chain"
             }
           },
           {

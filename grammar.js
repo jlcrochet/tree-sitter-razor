@@ -537,12 +537,7 @@ module.exports = grammar(csharp, {
     // Content fragments for title elements
     _title_text_fragment: $ => choice(
       alias($._title_content, $.escapable_raw_text),
-      $.html_character_reference,
-      $.invalid_character_reference,
-      $.razor_explicit_expression,
-      $.razor_implicit_expression,
-      $.escaped_at,
-      '&',  // Bare & that doesn't form a valid character reference
+      $._escapable_raw_text_content,
     ),
 
     // Textarea elements contain escapable raw text (can have character references and Razor)
@@ -570,6 +565,12 @@ module.exports = grammar(csharp, {
     // Content fragments for textarea elements
     _textarea_text_fragment: $ => choice(
       alias($._textarea_content, $.escapable_raw_text),
+      $._escapable_raw_text_content,
+    ),
+
+    // Shared content for escapable raw text elements (title, textarea)
+    // Excludes the element-specific raw text token which must be aliased separately
+    _escapable_raw_text_content: $ => choice(
       $.html_character_reference,
       $.invalid_character_reference,
       $.razor_explicit_expression,
@@ -1023,16 +1024,12 @@ module.exports = grammar(csharp, {
     // - invocation_expression for method calls
     // - element_access_expression for indexers
     // - conditional_access_expression for ?.member
+    // Primary expression that can have member access, invocation, or indexing applied
+    // Also includes literal keywords (true, false, null) which are unambiguous
     _razor_access_chain: $ => choice(
-      $._razor_primary_expression,
-      // These literals are unambiguous
+      $.identifier,
       $.boolean_literal,
       $.null_literal,
-    ),
-
-    // Primary expression that can have member access, invocation, or indexing applied
-    _razor_primary_expression: $ => choice(
-      $.identifier,
       alias($._razor_member_access, $.member_access_expression),
       alias($._razor_invocation, $.invocation_expression),
       alias($._razor_element_access, $.element_access_expression),
@@ -1048,7 +1045,7 @@ module.exports = grammar(csharp, {
     // Uses token.immediate() to prevent whitespace before dot and identifier
     // The _implicit_expr_end scanner detects when . isn't followed by identifier
     _razor_member_access: $ => prec.left(seq(
-      field('expression', $._razor_primary_expression),
+      field('expression', $._razor_access_chain),
       token.immediate('.'),
       field('name', $._immediate_identifier),
     )),
@@ -1056,7 +1053,7 @@ module.exports = grammar(csharp, {
     // Invocation: expr(args) or expr.method(args)
     // Uses context-aware ( to push C# context for Razor comments inside arguments
     _razor_invocation: $ => prec.left(seq(
-      field('function', $._razor_primary_expression),
+      field('function', $._razor_access_chain),
       field('arguments', alias($._razor_argument_list, $.argument_list)),
     )),
 
@@ -1070,7 +1067,7 @@ module.exports = grammar(csharp, {
     // Element access: expr[index]
     // Uses context-aware [ to push C# context for Razor comments inside subscript
     _razor_element_access: $ => prec.left(seq(
-      field('expression', $._razor_primary_expression),
+      field('expression', $._razor_access_chain),
       alias($._implicit_bracket_open, '['),
       field('subscript', $.expression),
       alias($._csharp_context_close, ']'),
@@ -1079,7 +1076,7 @@ module.exports = grammar(csharp, {
     // Conditional access: expr?.identifier
     // Uses token.immediate() to prevent whitespace before ?. and identifier
     _razor_conditional_access: $ => prec.left(seq(
-      field('expression', $._razor_primary_expression),
+      field('expression', $._razor_access_chain),
       token.immediate('?.'),
       field('name', $._immediate_identifier),
     )),
@@ -1089,7 +1086,7 @@ module.exports = grammar(csharp, {
     // Uses context-aware bracket close to support Razor comments inside subscript
     // Produces conditional_access_expression with element_binding_expression
     _razor_conditional_element_access: $ => prec.left(seq(
-      field('expression', $._razor_primary_expression),
+      field('expression', $._razor_access_chain),
       $._implicit_conditional_bracket_open,
       field('subscript', $.expression),
       alias($._csharp_context_close, ']'),
@@ -1099,7 +1096,7 @@ module.exports = grammar(csharp, {
     // Uses token.immediate() to prevent whitespace before !
     // Can be chained: val!.Name, val![0], val!?.bar
     _razor_suppression_expression: $ => prec.left(seq(
-      field('argument', $._razor_primary_expression),
+      field('argument', $._razor_access_chain),
       token.immediate('!'),
     )),
 
