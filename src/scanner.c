@@ -4,9 +4,11 @@
 #include <stdint.h>
 #include <string.h>
 #include "../tree-sitter-c-sharp/src/scanner.c"
+#include "tables/full_character_references.h"
+#include "tables/short_character_references.h"
 
-#include <stdio.h>
 #ifdef DEBUG_SCANNER
+#include <stdio.h>
 #define DEBUG_PRINT(...) fprintf(stderr, __VA_ARGS__)
 #else
 #define DEBUG_PRINT(...)
@@ -42,6 +44,9 @@ enum RazorTokenType {
     IMPLICIT_CONDITIONAL_BRACKET_OPEN,
     TEXT_LITERAL_CONTENT,
     TOP_LEVEL_CSHARP_COMMENT,
+    FULL_CHARACTER_REFERENCE,
+    SHORT_CHARACTER_REFERENCE,
+    INVALID_CHARACTER_REFERENCE,
 };
 
 typedef enum {
@@ -90,6 +95,7 @@ static bool check_closing_tag(TSLexer *lexer, const char *tag_name, int tag_len)
 }
 
 // Scan raw text content until matching closing tag. Returns true if content found.
+// Used for script and style elements which cannot contain nested HTML.
 static bool scan_raw_text_content(TSLexer *lexer, const char *tag_name, int tag_len,
                                    enum RazorTokenType result_token) {
     bool has_content = false;
@@ -105,6 +111,109 @@ static bool scan_raw_text_content(TSLexer *lexer, const char *tag_name, int tag_
             }
             has_content = true;
             lexer->mark_end(lexer);
+        } else {
+            razor_advance(lexer);
+            has_content = true;
+            lexer->mark_end(lexer);
+        }
+    }
+    if (has_content) {
+        lexer->result_symbol = result_token;
+        return true;
+    }
+    return false;
+}
+
+// Scan escapable raw text content (title, textarea) until matching closing tag.
+// Unlike raw text content, this handles HTML tag context transitions properly:
+// - Returns HTML_END_TAG_OPEN when the matching closing tag is found
+// - Returns HTML_TAG_OPEN for nested start tags if valid
+// - Stops at & to allow grammar to parse character references
+// - Stops at @ to allow grammar to parse Razor expressions
+// - Consumes non-matching end tags as content
+static bool scan_escapable_raw_text_content(TSLexer *lexer, RazorScanner *scanner,
+                                             const char *tag_name, int tag_len,
+                                             enum RazorTokenType result_token,
+                                             const bool *valid_symbols) {
+    // Handle < at start - could be closing tag or nested start tag
+    if (lexer->lookahead == '<') {
+        razor_advance(lexer);
+        if (lexer->lookahead == '/') {
+            razor_advance(lexer);
+            lexer->mark_end(lexer);
+            if (check_closing_tag(lexer, tag_name, tag_len)) {
+                // Matching closing tag - return HTML_END_TAG_OPEN
+                if (valid_symbols[HTML_END_TAG_OPEN]) {
+                    array_push(&scanner->context_stack, CONTEXT_HTML_TAG);
+                    lexer->result_symbol = HTML_END_TAG_OPEN;
+                    return true;
+                }
+            }
+            // Non-matching end tag - consume as content until matching closing tag, &, @, or start tag
+            lexer->mark_end(lexer);
+            while (!lexer->eof(lexer)) {
+                if (lexer->lookahead == '&' || lexer->lookahead == '@') {
+                    // Stop before & or @ to let grammar parse
+                    break;
+                }
+                if (lexer->lookahead == '<') {
+                    lexer->mark_end(lexer);
+                    razor_advance(lexer);
+                    if (lexer->lookahead == '/') {
+                        razor_advance(lexer);
+                        if (check_closing_tag(lexer, tag_name, tag_len)) break;
+                        // Non-matching end tag - continue
+                        lexer->mark_end(lexer);
+                    } else {
+                        // Start tag - stop before it
+                        break;
+                    }
+                } else {
+                    razor_advance(lexer);
+                    lexer->mark_end(lexer);
+                }
+            }
+            lexer->result_symbol = result_token;
+            return true;
+        } else if (valid_symbols[HTML_TAG_OPEN]) {
+            // Start tag inside escapable raw text
+            if (lexer->lookahead == '!') razor_advance(lexer);
+            lexer->mark_end(lexer);
+            array_push(&scanner->context_stack, CONTEXT_HTML_TAG);
+            lexer->result_symbol = HTML_TAG_OPEN;
+            return true;
+        }
+    }
+
+    // Don't start at & or @ - let grammar parse character reference or Razor expression
+    if (lexer->lookahead == '&' || lexer->lookahead == '@') {
+        return false;
+    }
+
+    // Scan content until matching closing tag, &, @, or EOF
+    // Non-matching end tags (e.g., </titlex> inside <title>) are consumed as content
+    bool has_content = false;
+    while (!lexer->eof(lexer)) {
+        if (lexer->lookahead == '&' || lexer->lookahead == '@') {
+            break;
+        }
+        if (lexer->lookahead == '<') {
+            // Check if this is the matching closing tag
+            lexer->mark_end(lexer);
+            razor_advance(lexer);
+            if (lexer->lookahead == '/') {
+                razor_advance(lexer);
+                if (check_closing_tag(lexer, tag_name, tag_len)) {
+                    // Matching closing tag found - stop before it
+                    break;
+                }
+                // Non-matching end tag - continue scanning
+                has_content = true;
+                lexer->mark_end(lexer);
+            } else {
+                // Start tag - stop before it (let grammar handle)
+                break;
+            }
         } else {
             razor_advance(lexer);
             has_content = true;
@@ -153,6 +262,112 @@ static bool scan_csharp_comment(TSLexer *lexer, enum RazorTokenType result_token
         lexer->result_symbol = result_token;
         return true;
     }
+    return false;
+}
+
+// Scan character reference starting at &.
+// Returns true if a valid character reference was found.
+// Sets result_symbol to FULL_CHARACTER_REFERENCE, SHORT_CHARACTER_REFERENCE, or INVALID_CHARACTER_REFERENCE.
+static bool scan_character_reference(TSLexer *lexer, const bool *valid_symbols) {
+    if (lexer->lookahead != '&') return false;
+
+    razor_advance(lexer);
+
+    // Numeric character reference: &#[0-9]+; or &#[xX][0-9a-fA-F]+;
+    if (lexer->lookahead == '#') {
+        razor_advance(lexer);
+        bool hex = false;
+        if (lexer->lookahead == 'x' || lexer->lookahead == 'X') {
+            hex = true;
+            razor_advance(lexer);
+        }
+
+        bool has_digits = false;
+        if (hex) {
+            while ((lexer->lookahead >= '0' && lexer->lookahead <= '9') ||
+                   (lexer->lookahead >= 'a' && lexer->lookahead <= 'f') ||
+                   (lexer->lookahead >= 'A' && lexer->lookahead <= 'F')) {
+                razor_advance(lexer);
+                has_digits = true;
+            }
+        } else {
+            while (lexer->lookahead >= '0' && lexer->lookahead <= '9') {
+                razor_advance(lexer);
+                has_digits = true;
+            }
+        }
+
+        if (!has_digits) return false;
+
+        if (lexer->lookahead == ';') {
+            razor_advance(lexer);
+            lexer->mark_end(lexer);
+            // Numeric references are always "full" (require semicolon)
+            lexer->result_symbol = FULL_CHARACTER_REFERENCE;
+            return true;
+        }
+        return false;
+    }
+
+    // Named character reference: &[a-zA-Z][a-zA-Z0-9]*;?
+    if (!((lexer->lookahead >= 'a' && lexer->lookahead <= 'z') ||
+          (lexer->lookahead >= 'A' && lexer->lookahead <= 'Z'))) {
+        return false;
+    }
+
+    // Collect the name, checking for short reference matches at each step
+    // This handles cases like &notit; which should match &not (short) + it;
+    char name[64];
+    int name_len = 0;
+    bool found_short = false;
+
+    lexer->mark_end(lexer);  // Mark position after &
+
+    while (name_len < 63 &&
+           ((lexer->lookahead >= 'a' && lexer->lookahead <= 'z') ||
+            (lexer->lookahead >= 'A' && lexer->lookahead <= 'Z') ||
+            (lexer->lookahead >= '0' && lexer->lookahead <= '9'))) {
+        name[name_len++] = (char)lexer->lookahead;
+        razor_advance(lexer);
+
+        // Check if the current prefix is a valid short reference
+        // Per HTML spec, we want the longest matching short reference
+        if (valid_symbols[SHORT_CHARACTER_REFERENCE]) {
+            if (lookup_short_character_reference(name, name_len) != ShortCharacterReference_Unknown) {
+                found_short = true;
+                lexer->mark_end(lexer);
+                lexer->result_symbol = SHORT_CHARACTER_REFERENCE;
+            }
+        }
+    }
+    name[name_len] = '\0';
+
+    if (name_len == 0) return false;
+
+    // Check for semicolon
+    if (lexer->lookahead == ';') {
+        razor_advance(lexer);
+        // With semicolon - check full table
+        if (lookup_full_character_reference(name, name_len) != FullCharacterReference_Unknown) {
+            lexer->mark_end(lexer);
+            lexer->result_symbol = FULL_CHARACTER_REFERENCE;
+            return true;
+        } else if (found_short) {
+            // Name with semicolon not in full table, but we found a short prefix earlier
+            // Return the short match (mark_end was already called at the right position)
+            return true;
+        } else if (valid_symbols[INVALID_CHARACTER_REFERENCE]) {
+            // Invalid: matches pattern but not in either table
+            lexer->mark_end(lexer);
+            lexer->result_symbol = INVALID_CHARACTER_REFERENCE;
+            return true;
+        }
+        return false;
+    } else if (found_short) {
+        // No semicolon but valid short reference (mark_end already called at right position)
+        return true;
+    }
+
     return false;
 }
 
@@ -442,7 +657,9 @@ bool tree_sitter_razor_external_scanner_scan(void *payload, TSLexer *lexer, cons
 
     DEBUG_PRINT("  check_at_tokens=%d, lookahead='%c'\n", check_at_tokens, lexer->lookahead);
     if (check_at_tokens) {
-        if (!valid_symbols[HTML_TEXT_CONTENT]) {
+        // Don't skip whitespace if we're inside text content (HTML, title, or textarea)
+        // as that whitespace should be captured as part of the content
+        if (!valid_symbols[HTML_TEXT_CONTENT] && !valid_symbols[TITLE_CONTENT] && !valid_symbols[TEXTAREA_CONTENT]) {
             while (is_whitespace(lexer->lookahead)) {
                 DEBUG_PRINT("  Skipping whitespace in check_at_tokens\n");
                 razor_skip(lexer);
@@ -521,52 +738,28 @@ bool tree_sitter_razor_external_scanner_scan(void *payload, TSLexer *lexer, cons
         }
     }
 
+    // Escapable raw text content (title, textarea)
+    // These elements can contain character references and need proper HTML tag context handling
     if (valid_symbols[TITLE_CONTENT]) {
-        if (!(lexer->lookahead == '<' && valid_symbols[HTML_END_TAG_OPEN])) {
-            if (scan_raw_text_content(lexer, "title", 5, TITLE_CONTENT)) return true;
+        if (scan_escapable_raw_text_content(lexer, scanner, "title", 5, TITLE_CONTENT, valid_symbols)) {
+            return true;
         }
     }
 
-    // Textarea: must check if end tag matches before falling through
     if (valid_symbols[TEXTAREA_CONTENT]) {
-        if (lexer->lookahead == '<') {
-            razor_advance(lexer);
-            if (lexer->lookahead == '/') {
-                razor_advance(lexer);
-                lexer->mark_end(lexer);
-                if (check_closing_tag(lexer, "textarea", 8)) {
-                    if (valid_symbols[HTML_END_TAG_OPEN]) {
-                        array_push(&scanner->context_stack, CONTEXT_HTML_TAG);
-                        lexer->result_symbol = HTML_END_TAG_OPEN;
-                        return true;
-                    }
-                }
-                // Non-matching end tag - consume as content until real </textarea>
-                lexer->mark_end(lexer);
-                while (!lexer->eof(lexer)) {
-                    if (lexer->lookahead == '<') {
-                        lexer->mark_end(lexer);
-                        razor_advance(lexer);
-                        if (lexer->lookahead == '/') {
-                            razor_advance(lexer);
-                            if (check_closing_tag(lexer, "textarea", 8)) break;
-                        }
-                        lexer->mark_end(lexer);
-                    } else {
-                        razor_advance(lexer);
-                        lexer->mark_end(lexer);
-                    }
-                }
-                lexer->result_symbol = TEXTAREA_CONTENT;
-                return true;
-            } else if (valid_symbols[HTML_TAG_OPEN]) {
-                if (lexer->lookahead == '!') razor_advance(lexer);
-                lexer->mark_end(lexer);
-                array_push(&scanner->context_stack, CONTEXT_HTML_TAG);
-                lexer->result_symbol = HTML_TAG_OPEN;
-                return true;
-            }
-        } else if (scan_raw_text_content(lexer, "textarea", 8, TEXTAREA_CONTENT)) {
+        if (scan_escapable_raw_text_content(lexer, scanner, "textarea", 8, TEXTAREA_CONTENT, valid_symbols)) {
+            return true;
+        }
+    }
+
+    // Character references (&...; or &... for short references)
+    // Short references (without semicolon) are NOT allowed in attribute values
+    // Check if we're in an HTML tag context to determine if short refs are allowed
+    if (lexer->lookahead == '&' &&
+        (valid_symbols[FULL_CHARACTER_REFERENCE] ||
+         valid_symbols[SHORT_CHARACTER_REFERENCE] ||
+         valid_symbols[INVALID_CHARACTER_REFERENCE])) {
+        if (scan_character_reference(lexer, valid_symbols)) {
             return true;
         }
     }

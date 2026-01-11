@@ -889,6 +889,76 @@ Bare ampersand in unquoted attribute value
         (html_unquoted_attribute_value)))))
 
 ================================================================================
+Short character reference without semicolon
+================================================================================
+<p>&amp &lt &gt</p>
+--------------------------------------------------------------------------------
+
+(compilation_unit
+  (element
+    (start_tag
+      (tag_name))
+    (html_character_reference)
+    (text)
+    (html_character_reference)
+    (text)
+    (html_character_reference)
+    (end_tag
+      (tag_name))))
+
+================================================================================
+Short character reference prefix matching (spec example)
+================================================================================
+I'm &notit; I tell you
+--------------------------------------------------------------------------------
+
+(compilation_unit
+  (text
+    (html_character_reference)))
+
+================================================================================
+Full character reference vs short prefix (spec example)
+================================================================================
+I'm &notin; I tell you
+--------------------------------------------------------------------------------
+
+(compilation_unit
+  (text
+    (html_character_reference)))
+
+================================================================================
+Invalid character reference
+================================================================================
+<p>&invalid;</p>
+--------------------------------------------------------------------------------
+
+(compilation_unit
+  (element
+    (start_tag
+      (tag_name))
+    (invalid_character_reference)
+    (end_tag
+      (tag_name))))
+
+================================================================================
+Short reference in attribute (should not match - treated as invalid)
+================================================================================
+<p title="test &amp test">text</p>
+--------------------------------------------------------------------------------
+
+(compilation_unit
+  (element
+    (start_tag
+      (tag_name)
+      (html_attribute
+        (html_attribute_name)
+        (html_attribute_value
+          (html_quoted_attribute_value))))
+    (text)
+    (end_tag
+      (tag_name))))
+
+================================================================================
 Symbol-bound attribute with brackets
 ================================================================================
 <a [item]='Foo'></a>
@@ -1105,3 +1175,178 @@ He said "hello"
 
 (compilation_unit
   (text))
+
+================================================================================
+Title with character reference
+================================================================================
+<title>Tom &amp; Jerry</title>
+--------------------------------------------------------------------------------
+
+(compilation_unit
+  (element
+    (start_tag
+      (tag_name))
+    (escapable_raw_text)
+    (html_character_reference)
+    (escapable_raw_text)
+    (end_tag
+      (tag_name))))
+
+================================================================================
+Title with Razor implicit expression
+================================================================================
+<title>@Model.Title</title>
+--------------------------------------------------------------------------------
+
+(compilation_unit
+  (element
+    (start_tag
+      (tag_name))
+    (razor_implicit_expression
+      (member_access_expression
+        (identifier)
+        (identifier)))
+    (end_tag
+      (tag_name))))
+
+================================================================================
+Title with Razor explicit expression
+================================================================================
+<title>@(pageTitle)</title>
+--------------------------------------------------------------------------------
+
+(compilation_unit
+  (element
+    (start_tag
+      (tag_name))
+    (razor_explicit_expression
+      (identifier))
+    (end_tag
+      (tag_name))))
+
+================================================================================
+Title with mixed content
+================================================================================
+<title>Hello &amp; @Model.Name</title>
+--------------------------------------------------------------------------------
+
+(compilation_unit
+  (element
+    (start_tag
+      (tag_name))
+    (escapable_raw_text)
+    (html_character_reference)
+    (escapable_raw_text)
+    (razor_implicit_expression
+      (member_access_expression
+        (identifier)
+        (identifier)))
+    (end_tag
+      (tag_name))))
+
+================================================================================
+Title with escaped at
+================================================================================
+<title>Email: user@@example.com</title>
+--------------------------------------------------------------------------------
+
+(compilation_unit
+  (element
+    (start_tag
+      (tag_name))
+    (escapable_raw_text)
+    (escaped_at)
+    (escapable_raw_text)
+    (end_tag
+      (tag_name))))
+
+================================================================================
+Title with bare ampersand
+================================================================================
+<title>Tom & Jerry</title>
+--------------------------------------------------------------------------------
+
+(compilation_unit
+  (element
+    (start_tag
+      (tag_name))
+    (escapable_raw_text)
+    (escapable_raw_text)
+    (end_tag
+      (tag_name))))
+
+================================================================================
+Textarea with character reference
+================================================================================
+<textarea>5 &gt; 3</textarea>
+--------------------------------------------------------------------------------
+
+(compilation_unit
+  (element
+    (start_tag
+      (tag_name))
+    (escapable_raw_text)
+    (html_character_reference)
+    (escapable_raw_text)
+    (end_tag
+      (tag_name))))
+
+================================================================================
+Textarea with Razor implicit expression
+================================================================================
+<textarea>@Model.Content</textarea>
+--------------------------------------------------------------------------------
+
+(compilation_unit
+  (element
+    (start_tag
+      (tag_name))
+    (razor_implicit_expression
+      (member_access_expression
+        (identifier)
+        (identifier)))
+    (end_tag
+      (tag_name))))
+
+================================================================================
+Textarea with Razor explicit expression
+================================================================================
+<textarea>@(string.Join("\n", lines))</textarea>
+--------------------------------------------------------------------------------
+
+(compilation_unit
+  (element
+    (start_tag
+      (tag_name))
+    (razor_explicit_expression
+      (invocation_expression
+        (member_access_expression
+          (predefined_type)
+          (identifier))
+        (argument_list
+          (argument
+            (string_literal
+              (escape_sequence)))
+          (argument
+            (identifier)))))
+    (end_tag
+      (tag_name))))
+
+================================================================================
+Textarea with mixed content and whitespace
+================================================================================
+<textarea>Hello &amp; @name there</textarea>
+--------------------------------------------------------------------------------
+
+(compilation_unit
+  (element
+    (start_tag
+      (tag_name))
+    (escapable_raw_text)
+    (html_character_reference)
+    (escapable_raw_text)
+    (razor_implicit_expression
+      (identifier))
+    (escapable_raw_text)
+    (end_tag
+      (tag_name))))

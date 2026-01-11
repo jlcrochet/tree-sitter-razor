@@ -54,6 +54,9 @@ module.exports = grammar(csharp, {
     $._implicit_conditional_bracket_open,
     $._text_literal_content,
     $._top_level_csharp_comment,
+    $._full_character_reference,
+    $._short_character_reference,
+    $._invalid_character_reference,
   ]),
 
   // @ts-ignore
@@ -83,7 +86,18 @@ module.exports = grammar(csharp, {
 
     doctype: $ => $._doctype,
     escaped_at: _ => '@@',
-    html_character_reference: _ => /&(#[0-9]+|#[xX][0-9a-fA-F]+|[a-zA-Z][a-zA-Z0-9]*);/,
+
+    // HTML character references (entities)
+    // Full: &amp; &lt; &gt; &#123; &#x7B; etc. (requires semicolon)
+    // Short: &amp &lt &gt etc. (legacy, no semicolon required, NOT allowed in attributes)
+    html_character_reference: $ => choice(
+      $._full_character_reference,
+      $._short_character_reference,
+    ),
+
+    // Invalid character reference: pattern matches but name not in spec (e.g., &invalid;)
+    // Exposed as named node for distinct highlighting (e.g., warning color)
+    invalid_character_reference: $ => $._invalid_character_reference,
 
     // =========================================================================
     // Razor Statements (@if, @foreach, etc.)
@@ -420,6 +434,7 @@ module.exports = grammar(csharp, {
       $.razor_implicit_expression,
       $.escaped_at,
       $.html_character_reference,
+      $.invalid_character_reference,
       $.text,
     ),
 
@@ -497,12 +512,12 @@ module.exports = grammar(csharp, {
       alias($._html_tag_close, '>'),
     ),
 
-    // Title elements contain escapable raw text (can have character references)
+    // Title elements contain escapable raw text (can have character references and Razor)
     // Higher precedence than regular elements to ensure <title> is matched first
     // Aliased to `element` so queries can match all elements uniformly
     _title_element: $ => prec(1, seq(
       alias($._title_start_tag, $.start_tag),
-      optional(alias($._title_content, $.escapable_raw_text)),
+      repeat($._title_text_fragment),
       alias($._title_end_tag, $.end_tag),
     )),
 
@@ -519,12 +534,23 @@ module.exports = grammar(csharp, {
       alias($._html_tag_close, '>'),
     ),
 
-    // Textarea elements contain escapable raw text (can have character references)
+    // Content fragments for title elements
+    _title_text_fragment: $ => choice(
+      alias($._title_content, $.escapable_raw_text),
+      $.html_character_reference,
+      $.invalid_character_reference,
+      $.razor_explicit_expression,
+      $.razor_implicit_expression,
+      $.escaped_at,
+      '&',  // Bare & that doesn't form a valid character reference
+    ),
+
+    // Textarea elements contain escapable raw text (can have character references and Razor)
     // Higher precedence than regular elements to ensure <textarea> is matched first
     // Aliased to `element` so queries can match all elements uniformly
     _textarea_element: $ => prec(1, seq(
       alias($._textarea_start_tag, $.start_tag),
-      optional(alias($._textarea_content, $.escapable_raw_text)),
+      repeat($._textarea_text_fragment),
       alias($._textarea_end_tag, $.end_tag),
     )),
 
@@ -539,6 +565,17 @@ module.exports = grammar(csharp, {
       alias($._html_end_tag_open, '</'),
       alias(token.immediate(prec(1, /textarea/i)), $.tag_name),
       alias($._html_tag_close, '>'),
+    ),
+
+    // Content fragments for textarea elements
+    _textarea_text_fragment: $ => choice(
+      alias($._textarea_content, $.escapable_raw_text),
+      $.html_character_reference,
+      $.invalid_character_reference,
+      $.razor_explicit_expression,
+      $.razor_implicit_expression,
+      $.escaped_at,
+      '&',  // Bare & that doesn't form a valid character reference
     ),
 
     // =========================================================================
@@ -603,7 +640,9 @@ module.exports = grammar(csharp, {
       /\s+/,        // Whitespace as separate token
       // Punctuation and other characters as individual tokens (excludes quote chars and @&)
       /[^"@&\sa-zA-Z0-9_'-]/,
-      $.html_character_reference,
+      // Character reference (only full refs allowed in attributes, NOT short refs)
+      alias($._full_character_reference, $.html_character_reference),
+      $.invalid_character_reference,
       // Bare @ followed by non-identifier char (literal @)
       '@',
       // Bare & that doesn't form a valid character reference
@@ -625,7 +664,9 @@ module.exports = grammar(csharp, {
       /\s+/,        // Whitespace as separate token
       // Punctuation and other characters as individual tokens (excludes quote chars and @&)
       /[^'@&\sa-zA-Z0-9_"-]/,
-      $.html_character_reference,
+      // Character reference (only full refs allowed in attributes, NOT short refs)
+      alias($._full_character_reference, $.html_character_reference),
+      $.invalid_character_reference,
       // Bare @ followed by non-identifier char (literal @)
       '@',
       // Bare & that doesn't form a valid character reference
@@ -638,12 +679,15 @@ module.exports = grammar(csharp, {
 
     // Unquoted attribute value: class=my-class or data-value=foo&amp;bar
     // Per HTML spec, unquoted values can contain character references
+    // Only full refs allowed in attributes (NOT short refs without semicolon)
     // Uses token.immediate for continuations to prevent html_attribute_name from matching
     html_unquoted_attribute_value: $ => seq(
       $._unquoted_attribute_value_start,
       repeat(choice(
         $._unquoted_attribute_value_continuation,
-        $.html_character_reference,
+        // Character reference (only full refs allowed in attributes, NOT short refs)
+        alias($._full_character_reference, $.html_character_reference),
+        $.invalid_character_reference,
         // Bare & that doesn't form a valid character reference
         '&',
       )),
@@ -1125,6 +1169,8 @@ module.exports = grammar(csharp, {
       prec(1, $._text_with_literal_at),
       // HTML character references (&amp;, &#123;, etc.)
       $.html_character_reference,
+      // Invalid character references (&invalid;)
+      $.invalid_character_reference,
       // Main text content - uses external scanner to be keyword-aware and handle & properly
       // Lower precedence (-1) so grammar keywords like 'where' can win
       prec(-1, $._html_text_content),
