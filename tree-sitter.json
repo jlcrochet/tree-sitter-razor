@@ -11,7 +11,9 @@
         "razor"
       ],
       "external-files": [
-        "tree-sitter-c-sharp/src/scanner.c"
+        "tree-sitter-c-sharp/src/scanner.c",
+        "src/tables/short_character_references.h",
+        "src/tables/full_character_references.h"
       ],
       "injection-regex": "^razor$",
       "class-name": "TreeSitterRazor"

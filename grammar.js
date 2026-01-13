@@ -20,10 +20,14 @@ module.exports = grammar(csharp, {
     $._csharp_razor_comment,
   ]),
 
-  // GLR conflict: After @if(...){}, the parser can't tell if a following razor_comment
-  // is element content or part of a potential else clause. GLR explores both paths.
+  // GLR conflicts that are resolved at parse time
   conflicts: ($, original) => original.concat([
+    // After @if(...){}, the parser can't tell if a following razor_comment
+    // is element content or part of a potential else clause. GLR explores both paths.
     [$._razor_if_statement_body],
+    // Empty [] can be either a collection expression (bracketed_argument_list) or a list pattern
+    // GLR explores both and chooses based on context (expression vs pattern)
+    [$.bracketed_argument_list, $.list_pattern],
   ]),
 
   externals: ($, original) => original.concat([
@@ -1015,7 +1019,8 @@ module.exports = grammar(csharp, {
     )),
 
     // Matches: identifier, identifier.member, identifier.method(), identifier[index], identifier?.member
-    // Also matches literal keywords: true, false, null
+    // Also matches: this, this.Property, string.Empty, int.MaxValue, etc.
+    // And literal keywords: true, false, null
     // Note: Generics are NOT allowed in implicit expressions - <> is interpreted as HTML
     // Use @(GenericMethod<int>()) for generics
     //
@@ -1025,9 +1030,13 @@ module.exports = grammar(csharp, {
     // - element_access_expression for indexers
     // - conditional_access_expression for ?.member
     // Primary expression that can have member access, invocation, or indexing applied
-    // Also includes literal keywords (true, false, null) which are unambiguous
     _razor_access_chain: $ => choice(
       $.identifier,
+      // 'this' keyword for accessing current instance
+      alias(token.immediate('this'), $.this_expression),
+      // Predefined types for static member access (e.g., @string.Empty, @int.MaxValue)
+      $.predefined_type,
+      // Literal keywords
       $.boolean_literal,
       $.null_literal,
       alias($._razor_member_access, $.member_access_expression),
@@ -1118,6 +1127,24 @@ module.exports = grammar(csharp, {
       original,
       $.razor_fragment,
     ),
+
+    // Override bracketed_argument_list to support C# 12 collection expressions
+    // The original requires at least one argument (commaSep1), but collection expressions
+    // can be empty (e.g., []) or contain spread elements (e.g., [..items])
+    // This also fixes error recovery issues when multiple [] expressions appear in code
+    bracketed_argument_list: $ => seq(
+      '[',
+      commaSep($._bracketed_argument_list_item),
+      optional(','),
+      ']',
+    ),
+
+    _bracketed_argument_list_item: $ => choice(
+      $.argument,
+      $.spread_element,
+    ),
+
+    spread_element: $ => seq('..', $.expression),
 
     // Extend statement to include razor_text_literal (@:) and HTML elements as statement bodies
     statement: ($, original) => choice(
