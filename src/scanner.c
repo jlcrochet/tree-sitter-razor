@@ -1,6 +1,7 @@
 #include "tree_sitter/alloc.h"
 #include "tree_sitter/array.h"
 #include "tree_sitter/parser.h"
+#include <assert.h>
 #include <stdint.h>
 #include <string.h>
 #include "../tree-sitter-c-sharp/src/scanner.c"
@@ -14,7 +15,30 @@
 #define DEBUG_PRINT(...)
 #endif
 
+// Number of external tokens defined by the C# scanner.
+// This must match the C# grammar's external token count.
+// Run `make check-csharp-tokens` to verify this value is correct.
+// The C# scanner's external tokens are (in order):
+//   0: _optional_semi
+//   1: interpolation_regular_start
+//   2: interpolation_verbatim_start
+//   3: interpolation_raw_start
+//   4: interpolation_start_quote
+//   5: interpolation_end_quote
+//   6: interpolation_open_brace
+//   7: interpolation_close_brace
+//   8: interpolation_string_content
+//   9: raw_string_start
+//  10: raw_string_end
+//  11: raw_string_content
+// If the C# grammar adds or removes external tokens, update this constant.
 #define CSHARP_TOKEN_COUNT 12
+
+// C# scanner serialization format (for documentation and validation):
+// [quote_count:1 byte][interp_count:1 byte][interp_data:4 bytes per interpolation]
+// Total C# scanner serialized size = 2 + (interp_count * 4)
+#define CSHARP_SERIALIZATION_HEADER_SIZE 2
+#define CSHARP_INTERPOLATION_ENTRY_SIZE 4
 
 typedef enum {
     RazorTokenType_TextWithLiteralAt = CSHARP_TOKEN_COUNT,
@@ -83,6 +107,7 @@ static inline bool is_end_tag_terminator(int32_t c) {
 // Note: tag_name must be lowercase ASCII.
 static bool check_closing_tag(TSLexer *lexer, const char *tag_name, int tag_len) {
     for (int i = 0; i < tag_len; i++) {
+        if (lexer->eof(lexer)) return false;
         int32_t c = lexer->lookahead;
         // Normalize to lowercase for comparison
         if (c >= 'A' && c <= 'Z') c += 32;
@@ -91,7 +116,7 @@ static bool check_closing_tag(TSLexer *lexer, const char *tag_name, int tag_len)
         }
         razor_advance(lexer);
     }
-    return is_end_tag_terminator(lexer->lookahead);
+    return !lexer->eof(lexer) && is_end_tag_terminator(lexer->lookahead);
 }
 
 // Scan raw text content until matching closing tag. Returns true if content found.
@@ -306,14 +331,15 @@ static bool scan_character_reference(TSLexer *lexer, const bool *valid_symbols) 
 
         bool has_digits = false;
         if (hex) {
-            while ((lexer->lookahead >= '0' && lexer->lookahead <= '9') ||
-                   (lexer->lookahead >= 'a' && lexer->lookahead <= 'f') ||
-                   (lexer->lookahead >= 'A' && lexer->lookahead <= 'F')) {
+            while (!lexer->eof(lexer) &&
+                   ((lexer->lookahead >= '0' && lexer->lookahead <= '9') ||
+                    (lexer->lookahead >= 'a' && lexer->lookahead <= 'f') ||
+                    (lexer->lookahead >= 'A' && lexer->lookahead <= 'F'))) {
                 razor_advance(lexer);
                 has_digits = true;
             }
         } else {
-            while (lexer->lookahead >= '0' && lexer->lookahead <= '9') {
+            while (!lexer->eof(lexer) && lexer->lookahead >= '0' && lexer->lookahead <= '9') {
                 razor_advance(lexer);
                 has_digits = true;
             }
@@ -345,7 +371,7 @@ static bool scan_character_reference(TSLexer *lexer, const bool *valid_symbols) 
 
     lexer->mark_end(lexer);  // Mark position after &
 
-    while (name_len < 63 &&
+    while (name_len < 63 && !lexer->eof(lexer) &&
            ((lexer->lookahead >= 'a' && lexer->lookahead <= 'z') ||
             (lexer->lookahead >= 'A' && lexer->lookahead <= 'Z') ||
             (lexer->lookahead >= '0' && lexer->lookahead <= '9'))) {
@@ -526,6 +552,13 @@ static inline bool is_identifier_start(int32_t c) {
     return is_unicode_letter(c) || c == '_';
 }
 
+// Skip whitespace characters, respecting EOF
+static inline void skip_whitespace(TSLexer *lexer) {
+    while (!lexer->eof(lexer) && is_whitespace(lexer->lookahead)) {
+        razor_skip(lexer);
+    }
+}
+
 void *tree_sitter_razor_external_scanner_create() {
     RazorScanner *scanner = ts_calloc(1, sizeof(RazorScanner));
     scanner->csharp_scanner = tree_sitter_c_sharp_external_scanner_create();
@@ -576,18 +609,39 @@ void tree_sitter_razor_external_scanner_deserialize(void *payload, const char *b
     // We need to figure out how much of the buffer belongs to C#
     // Format: [quote_count:1][interp_count:1][interp_data:4*count][razor_context_count:1][context_data:count]
 
-    unsigned char quote_count = (unsigned char)buffer[0];
-    (void)quote_count;  // Not used directly, just for calculating size
+    // Validate minimum buffer size for C# header
+    if (length < CSHARP_SERIALIZATION_HEADER_SIZE) {
+        // Corrupted data - not enough bytes for C# header
+        assert(false && "Corrupted serialization: buffer too small for C# header");
+        return;
+    }
+
     unsigned char interp_count = (unsigned char)buffer[1];
-    unsigned csharp_size = 2 + interp_count * 4;
+    unsigned csharp_size = CSHARP_SERIALIZATION_HEADER_SIZE + interp_count * CSHARP_INTERPOLATION_ENTRY_SIZE;
+
+    // Validate that we have enough data for the C# scanner state
+    if (csharp_size > length) {
+        // Corrupted data - interpolation count claims more data than available
+        assert(false && "Corrupted serialization: C# state size exceeds buffer length");
+        return;
+    }
 
     // Deserialize C# state
     tree_sitter_c_sharp_external_scanner_deserialize(scanner->csharp_scanner, buffer, csharp_size);
 
     // Deserialize Razor state
     if (length > csharp_size) {
-        unsigned context_count = (unsigned char)buffer[csharp_size++];
-        array_extend(&scanner->context_stack, context_count, &buffer[csharp_size]);
+        unsigned remaining = length - csharp_size;
+        unsigned context_count = (unsigned char)buffer[csharp_size];
+
+        // Validate that we have enough bytes for the context stack
+        if (context_count > remaining - 1) {
+            // Corrupted data - context count claims more data than available
+            assert(false && "Corrupted serialization: context count exceeds remaining buffer");
+            return;
+        }
+
+        array_extend(&scanner->context_stack, context_count, &buffer[csharp_size + 1]);
     }
 }
 
@@ -607,9 +661,7 @@ bool tree_sitter_razor_external_scanner_scan(void *payload, TSLexer *lexer, cons
 
     // RazorTokenType_RazorBlockAt in C# context - must check early to beat main lexer's @ token
     if (valid_symbols[RazorTokenType_RazorBlockAt] && in_csharp_context(scanner)) {
-        while (is_whitespace(lexer->lookahead)) {
-            razor_skip(lexer);
-        }
+        skip_whitespace(lexer);
         if (lexer->lookahead == '@') {
             razor_advance(lexer);
             int32_t after_at = lexer->lookahead;
@@ -733,9 +785,7 @@ bool tree_sitter_razor_external_scanner_scan(void *payload, TSLexer *lexer, cons
     // Using directive lookahead (zero-width token to disambiguate @using forms)
     // Don't match if RazorTokenType_HtmlTagOpen is valid and we're at '<' (after skipping whitespace)
     if (valid_symbols[RazorTokenType_UsingNotAlias] && scanner->context_stack.size == 0) {
-        while (is_whitespace(lexer->lookahead)) {
-            razor_skip(lexer);
-        }
+        skip_whitespace(lexer);
         // After skipping whitespace, check if we're at '<' with RazorTokenType_HtmlTagOpen valid
         if (lexer->lookahead == '<' && valid_symbols[RazorTokenType_HtmlTagOpen]) {
             // Fall through to HTML tag handling
@@ -788,14 +838,14 @@ bool tree_sitter_razor_external_scanner_scan(void *payload, TSLexer *lexer, cons
         }
     }
 
-    // HTML tag tokens (<, </, <!, <!--, <!RazorTokenType_Doctype)
+    // HTML tag tokens (<, </, <!, <!--, <!DOCTYPE)
     // Skip leading whitespace for end tags (e.g., newlines before </div>)
     if (valid_symbols[RazorTokenType_HtmlTagOpen] || valid_symbols[RazorTokenType_HtmlEndTagOpen] ||
         valid_symbols[RazorTokenType_HtmlComment] || valid_symbols[RazorTokenType_Doctype]) {
         // For end tags, skip whitespace first - BUT only if RazorTokenType_HtmlTextContent is not valid
         // Otherwise the whitespace might need to be returned as text
         while (valid_symbols[RazorTokenType_HtmlEndTagOpen] && !valid_symbols[RazorTokenType_HtmlTextContent] &&
-               is_whitespace(lexer->lookahead)) {
+               !lexer->eof(lexer) && is_whitespace(lexer->lookahead)) {
             razor_skip(lexer);
         }
         if (lexer->lookahead == '<') {
@@ -887,7 +937,7 @@ bool tree_sitter_razor_external_scanner_scan(void *payload, TSLexer *lexer, cons
 
     // > closes HTML tag
     if (valid_symbols[RazorTokenType_HtmlTagClose] && in_html_tag_context(scanner)) {
-        while (is_whitespace(lexer->lookahead)) razor_skip(lexer);
+        skip_whitespace(lexer);
         if (lexer->lookahead == '>') {
             razor_advance(lexer);
             lexer->mark_end(lexer);
@@ -945,9 +995,7 @@ bool tree_sitter_razor_external_scanner_scan(void *payload, TSLexer *lexer, cons
     // When inside an element, whitespace might need to be preserved as text
     if (valid_symbols[RazorTokenType_TopLevelCsharpComment] && !in_csharp_context(scanner)) {
         if (!valid_symbols[RazorTokenType_HtmlEndTagOpen]) {
-            while (is_whitespace(lexer->lookahead)) {
-                razor_skip(lexer);
-            }
+            skip_whitespace(lexer);
         }
         if (scan_csharp_comment(lexer, RazorTokenType_TopLevelCsharpComment)) return true;
     }
@@ -957,9 +1005,7 @@ bool tree_sitter_razor_external_scanner_scan(void *payload, TSLexer *lexer, cons
     // Only skip whitespace if HTML_TEXT is NOT valid - otherwise let HTML_TEXT handler decide
     if (valid_symbols[RazorTokenType_RazorComment] && !in_csharp_context(scanner) && !in_html_tag_context(scanner)) {
         if (!valid_symbols[RazorTokenType_HtmlTextContent]) {
-            while (is_whitespace(lexer->lookahead)) {
-                razor_skip(lexer);
-            }
+            skip_whitespace(lexer);
         }
         if (lexer->lookahead == '@') {
             // Peek ahead to check for comment without consuming @
@@ -988,11 +1034,14 @@ bool tree_sitter_razor_external_scanner_scan(void *payload, TSLexer *lexer, cons
             // doesn't become a separate text token that blocks keyword matching
 
             // First, consume the whitespace
-            while (is_whitespace(lexer->lookahead)) {
+            while (!lexer->eof(lexer) && is_whitespace(lexer->lookahead)) {
                 razor_advance(lexer);
             }
 
             // Now check what follows the whitespace
+            if (lexer->eof(lexer)) {
+                return false;
+            }
             if (lexer->lookahead == '"' || lexer->lookahead == '\'') {
                 // Whitespace followed by quote - let grammar handle string literal
                 // Don't return the whitespace; it's just formatting before a directive arg
@@ -1037,8 +1086,7 @@ bool tree_sitter_razor_external_scanner_scan(void *payload, TSLexer *lexer, cons
 
                 char keyword_buf[8] = {0};
                 int keyword_len = 0;
-                int32_t start_char = lexer->lookahead;
-                while (keyword_len < 7 && is_identifier_char(lexer->lookahead)) {
+                while (keyword_len < 7 && !lexer->eof(lexer) && is_identifier_char(lexer->lookahead)) {
                     keyword_buf[keyword_len++] = (char)lexer->lookahead;
                     razor_advance(lexer);
                 }
@@ -1165,14 +1213,14 @@ bool tree_sitter_razor_external_scanner_scan(void *payload, TSLexer *lexer, cons
 
                 if (check_keyword) {
                     lexer->mark_end(lexer);
-                    while (keyword_len < 7 && is_identifier_char(lexer->lookahead)) {
+                    while (keyword_len < 7 && !lexer->eof(lexer) && is_identifier_char(lexer->lookahead)) {
                         keyword_buf[keyword_len++] = (char)lexer->lookahead;
                         razor_advance(lexer);
                     }
                     keyword_buf[keyword_len] = '\0';
 
                     bool is_keyword = false;
-                    if (!is_identifier_char(lexer->lookahead)) {
+                    if (lexer->eof(lexer) || !is_identifier_char(lexer->lookahead)) {
                         if (at_line_start) {
                             if (keyword_len == 4 && memcmp(keyword_buf, "else", 4) == 0) is_keyword = true;
                             else if (keyword_len == 5 && memcmp(keyword_buf, "catch", 5) == 0) is_keyword = true;
@@ -1220,9 +1268,7 @@ bool tree_sitter_razor_external_scanner_scan(void *payload, TSLexer *lexer, cons
 
     // { opens Razor block (enters C# brace context)
     if (valid_symbols[RazorTokenType_RazorBlockOpen] && !valid_symbols[RazorTokenType_CsharpContextClose]) {
-        while (is_whitespace(lexer->lookahead)) {
-            razor_skip(lexer);
-        }
+        skip_whitespace(lexer);
         if (lexer->lookahead == '{') {
             razor_advance(lexer);
             lexer->mark_end(lexer);
@@ -1234,9 +1280,7 @@ bool tree_sitter_razor_external_scanner_scan(void *payload, TSLexer *lexer, cons
 
     // ( in implicit expression - push C# paren context
     if (valid_symbols[RazorTokenType_ImplicitParenOpen]) {
-        while (is_whitespace(lexer->lookahead)) {
-            razor_skip(lexer);
-        }
+        skip_whitespace(lexer);
         if (lexer->lookahead == '(') {
             razor_advance(lexer);
             lexer->mark_end(lexer);
@@ -1248,9 +1292,7 @@ bool tree_sitter_razor_external_scanner_scan(void *payload, TSLexer *lexer, cons
 
     // [ in implicit expression - push C# bracket context
     if (valid_symbols[RazorTokenType_ImplicitBracketOpen]) {
-        while (is_whitespace(lexer->lookahead)) {
-            razor_skip(lexer);
-        }
+        skip_whitespace(lexer);
         if (lexer->lookahead == '[') {
             razor_advance(lexer);
             lexer->mark_end(lexer);
@@ -1262,9 +1304,7 @@ bool tree_sitter_razor_external_scanner_scan(void *payload, TSLexer *lexer, cons
 
     // } or ) or ] closes C# context
     if (valid_symbols[RazorTokenType_CsharpContextClose] && scanner->context_stack.size > 0) {
-        while (is_whitespace(lexer->lookahead)) {
-            razor_skip(lexer);
-        }
+        skip_whitespace(lexer);
 
         ContextType top = scanner->context_stack.contents[scanner->context_stack.size - 1];
         if ((top == ContextType_CsharpBrace && lexer->lookahead == '}') ||
@@ -1280,9 +1320,7 @@ bool tree_sitter_razor_external_scanner_scan(void *payload, TSLexer *lexer, cons
 
     // @ in C# context (handles @* comment and nested @ expressions)
     if ((valid_symbols[RazorTokenType_RazorCommentStart] || valid_symbols[RazorTokenType_RazorBlockAt]) && in_csharp_context(scanner)) {
-        while (is_whitespace(lexer->lookahead)) {
-            razor_skip(lexer);
-        }
+        skip_whitespace(lexer);
 
         if (lexer->lookahead == '@') {
             razor_advance(lexer);
@@ -1317,9 +1355,7 @@ bool tree_sitter_razor_external_scanner_scan(void *payload, TSLexer *lexer, cons
 
     // Razor comment as extra in C# context
     if (valid_symbols[RazorTokenType_RazorCommentExtra] && in_csharp_context(scanner)) {
-        while (is_whitespace(lexer->lookahead)) {
-            razor_skip(lexer);
-        }
+        skip_whitespace(lexer);
         if (lexer->lookahead == '@') {
             razor_advance(lexer);
             if (lexer->lookahead == '*') {

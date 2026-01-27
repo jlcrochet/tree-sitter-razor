@@ -96,4 +96,15 @@ clean:
 test:
 	$(TS) test
 
-.PHONY: all install uninstall clean test
+# Verify CSHARP_TOKEN_COUNT matches the C# grammar's external token count
+check-csharp-tokens:
+	@./scripts/check-csharp-tokens.sh
+
+# Install git hooks for development
+install-hooks:
+	@./scripts/install-hooks.sh
+
+# Run check before compiling scanner.o to catch mismatches early
+$(SRC_DIR)/scanner.o: check-csharp-tokens
+
+.PHONY: all install uninstall clean test check-csharp-tokens install-hooks

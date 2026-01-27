@@ -1,0 +1,17 @@
+#!/bin/bash
+# Git post-merge hook for tree-sitter-razor
+# Verifies C# token count compatibility after merge (including submodule updates).
+#
+# Install with: ln -sf ../../scripts/git-hooks/post-merge .git/hooks/post-merge
+
+# Check if tree-sitter-c-sharp submodule was modified in the merge
+if git diff --name-only HEAD@{1} HEAD 2>/dev/null | grep -q '^tree-sitter-c-sharp'; then
+    echo "tree-sitter-c-sharp submodule changed, checking token compatibility..."
+    if [ -x ./scripts/check-csharp-tokens.sh ]; then
+        ./scripts/check-csharp-tokens.sh || {
+            echo ""
+            echo "WARNING: C# token count mismatch detected!"
+            echo "Please update CSHARP_TOKEN_COUNT in src/scanner.c before building."
+        }
+    fi
+fi
