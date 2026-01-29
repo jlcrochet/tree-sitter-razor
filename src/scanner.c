@@ -37,6 +37,9 @@
 // C# scanner serialization format (for documentation and validation):
 // [quote_count:1 byte][interp_count:1 byte][interp_data:4 bytes per interpolation]
 // Total C# scanner serialized size = 2 + (interp_count * 4)
+//
+// Razor scanner serialization format (appended after C# state):
+// [context_count:varint][context_data:1 byte each]
 #define CSHARP_SERIALIZATION_HEADER_SIZE 2
 #define CSHARP_INTERPOLATION_ENTRY_SIZE 4
 
@@ -540,6 +543,7 @@ static inline bool is_whitespace(int32_t c) {
            c == 0x202F || c == 0x205F || c == 0x3000;
 }
 
+// Mirrors Razor's HtmlTokenizer heuristic: char.IsLetter/IsDigit.
 static inline bool is_email_char(int32_t c) {
     return is_unicode_letter(c) || is_unicode_digit(c);
 }
@@ -557,6 +561,44 @@ static inline void skip_whitespace(TSLexer *lexer) {
     while (!lexer->eof(lexer) && is_whitespace(lexer->lookahead)) {
         razor_skip(lexer);
     }
+}
+
+static inline unsigned varint_len_u32(uint32_t value) {
+    unsigned len = 1;
+    while (value >= 0x80) {
+        value >>= 7;
+        len++;
+    }
+    return len;
+}
+
+static unsigned write_varint_u32(char *buffer, unsigned max, uint32_t value) {
+    unsigned i = 0;
+    do {
+        if (i >= max) return 0;
+        uint8_t byte = (uint8_t)(value & 0x7F);
+        value >>= 7;
+        if (value) byte |= 0x80;
+        buffer[i++] = (char)byte;
+    } while (value);
+    return i;
+}
+
+static bool read_varint_u32(const char *buffer, unsigned length, uint32_t *value, unsigned *consumed) {
+    uint32_t result = 0;
+    unsigned shift = 0;
+    unsigned i = 0;
+    while (i < length && shift <= 28) {
+        uint8_t byte = (uint8_t)buffer[i++];
+        result |= (uint32_t)(byte & 0x7F) << shift;
+        if ((byte & 0x80) == 0) {
+            *value = result;
+            *consumed = i;
+            return true;
+        }
+        shift += 7;
+    }
+    return false;
 }
 
 void *tree_sitter_razor_external_scanner_create() {
@@ -580,15 +622,19 @@ unsigned tree_sitter_razor_external_scanner_serialize(void *payload, char *buffe
     unsigned csharp_size = tree_sitter_c_sharp_external_scanner_serialize(scanner->csharp_scanner, buffer);
 
     // Check if we have room for Razor state
-    unsigned razor_size = 1 + scanner->context_stack.size;  // 1 byte for count + stack contents
+    uint32_t context_count = scanner->context_stack.size;
+    unsigned count_size = varint_len_u32(context_count);
+    unsigned razor_size = count_size + context_count;
     if (csharp_size + razor_size > TREE_SITTER_SERIALIZATION_BUFFER_SIZE) {
         return 0;
     }
 
     // Append Razor state after C# state
     unsigned size = csharp_size;
-    buffer[size++] = (char)scanner->context_stack.size;
-    for (unsigned i = 0; i < scanner->context_stack.size; i++) {
+    unsigned written = write_varint_u32(buffer + size, TREE_SITTER_SERIALIZATION_BUFFER_SIZE - size, context_count);
+    if (written == 0) return 0;
+    size += written;
+    for (unsigned i = 0; i < context_count; i++) {
         buffer[size++] = (char)scanner->context_stack.contents[i];
     }
 
@@ -607,7 +653,7 @@ void tree_sitter_razor_external_scanner_deserialize(void *payload, const char *b
 
     // The C# scanner serializes: 1 byte quote_count + 1 byte interpolation_count + 4 bytes per interpolation
     // We need to figure out how much of the buffer belongs to C#
-    // Format: [quote_count:1][interp_count:1][interp_data:4*count][razor_context_count:1][context_data:count]
+    // Format: [quote_count:1][interp_count:1][interp_data:4*count][razor_context_count:varint][context_data:count]
 
     // Validate minimum buffer size for C# header
     if (length < CSHARP_SERIALIZATION_HEADER_SIZE) {
@@ -632,16 +678,21 @@ void tree_sitter_razor_external_scanner_deserialize(void *payload, const char *b
     // Deserialize Razor state
     if (length > csharp_size) {
         unsigned remaining = length - csharp_size;
-        unsigned context_count = (unsigned char)buffer[csharp_size];
+        uint32_t context_count = 0;
+        unsigned consumed = 0;
+        if (!read_varint_u32(buffer + csharp_size, remaining, &context_count, &consumed)) {
+            assert(false && "Corrupted serialization: invalid context count varint");
+            return;
+        }
 
         // Validate that we have enough bytes for the context stack
-        if (context_count > remaining - 1) {
+        if (context_count > remaining - consumed) {
             // Corrupted data - context count claims more data than available
             assert(false && "Corrupted serialization: context count exceeds remaining buffer");
             return;
         }
 
-        array_extend(&scanner->context_stack, context_count, &buffer[csharp_size + 1]);
+        array_extend(&scanner->context_stack, context_count, (const uint8_t *)&buffer[csharp_size + consumed]);
     }
 }
 
@@ -827,8 +878,8 @@ bool tree_sitter_razor_external_scanner_scan(void *payload, TSLexer *lexer, cons
     }
 
     // Character references (&...; or &... for short references)
-    // Short references (without semicolon) are NOT allowed in attribute values
-    // Check if we're in an HTML tag context to determine if short refs are allowed
+    // Short references (without semicolon) are only enabled when requested by the grammar
+    // (attribute values disable them by not setting the short-ref symbol).
     if (lexer->lookahead == '&' &&
         (valid_symbols[RazorTokenType_FullCharacterReference] ||
          valid_symbols[RazorTokenType_ShortCharacterReference] ||
@@ -952,30 +1003,31 @@ bool tree_sitter_razor_external_scanner_scan(void *payload, TSLexer *lexer, cons
     if (valid_symbols[RazorTokenType_TextWithLiteralAt] && !valid_symbols[RazorTokenType_HtmlTextContent]) {
         DEBUG_PRINT("  TEXT_AT block entered\n");
         bool found_literal_at = false;
-        bool last_was_word = false;
+        int32_t last_char = 0;
 
         while (!lexer->eof(lexer) && lexer->lookahead != '<' &&
                lexer->lookahead != '"' && lexer->lookahead != '\'') {
 
             if (lexer->lookahead == '@') {
-                if (last_was_word) {
+                if (is_email_char(last_char)) {
                     razor_advance(lexer);
                     if (is_email_char(lexer->lookahead)) {
                         found_literal_at = true;
                         while (is_email_char(lexer->lookahead) ||
                                lexer->lookahead == '.' ||
                                lexer->lookahead == '-') {
+                            last_char = lexer->lookahead;
                             razor_advance(lexer);
                         }
                         lexer->mark_end(lexer);
-                        last_was_word = false;
+                        last_char = 0;
                         continue;
                     }
                 }
                 break;
             }
 
-            last_was_word = is_email_char(lexer->lookahead);
+            last_char = lexer->lookahead;
             razor_advance(lexer);
 
             if (found_literal_at) {
@@ -1138,18 +1190,21 @@ bool tree_sitter_razor_external_scanner_scan(void *payload, TSLexer *lexer, cons
             bool found_keyword = false;
             bool at_line_start = true;
 
-            bool last_was_email_char = false;  // Track if previous char was email-like
+            int32_t last_char = 0;  // Track previous char for email heuristic
 
             while (!lexer->eof(lexer)) {
                 DEBUG_PRINT("  HTML_TEXT loop: lookahead='%c' (%d), at_line_start=%d\n", lexer->lookahead, lexer->lookahead, at_line_start);
                 if (lexer->lookahead == '<') break;
-                if (lexer->lookahead == '[' || lexer->lookahead == '(' || lexer->lookahead == '.') break;
+                if (lexer->lookahead == '[' || lexer->lookahead == '(' ||
+                    (lexer->lookahead == '.' && !valid_symbols[RazorTokenType_HtmlEndTagOpen])) {
+                    break;
+                }
                 if (lexer->lookahead == '{' || lexer->lookahead == '}') break;
                 if (lexer->lookahead == '&') break;
 
                 // Handle @ - check if it's part of an email address
                 if (lexer->lookahead == '@') {
-                    if (last_was_email_char) {
+                    if (is_email_char(last_char)) {
                         // Might be email - look ahead to see if followed by identifier
                         razor_advance(lexer);
                         if (is_email_char(lexer->lookahead)) {
@@ -1157,12 +1212,13 @@ bool tree_sitter_razor_external_scanner_scan(void *payload, TSLexer *lexer, cons
                             while (is_email_char(lexer->lookahead) ||
                                    lexer->lookahead == '.' ||
                                    lexer->lookahead == '-') {
+                                last_char = lexer->lookahead;
                                 razor_advance(lexer);
                             }
                             has_content = true;
                             has_nonwhitespace = true;
                             lexer->mark_end(lexer);
-                            last_was_email_char = false;
+                            last_char = 0;
                             at_line_start = false;
                             continue;
                         }
@@ -1175,7 +1231,7 @@ bool tree_sitter_razor_external_scanner_scan(void *payload, TSLexer *lexer, cons
                     has_content = true;
                     lexer->mark_end(lexer);
                     at_line_start = true;
-                    last_was_email_char = false;
+                    last_char = 0;
                     continue;
                 }
 
@@ -1190,7 +1246,7 @@ bool tree_sitter_razor_external_scanner_scan(void *payload, TSLexer *lexer, cons
                         has_nonwhitespace = true;
                     }
                     lexer->mark_end(lexer);
-                    last_was_email_char = false;
+                    last_char = 0;
                     continue;
                 }
 
@@ -1239,11 +1295,15 @@ bool tree_sitter_razor_external_scanner_scan(void *payload, TSLexer *lexer, cons
                     has_nonwhitespace = true;
                     lexer->mark_end(lexer);
                     at_line_start = false;
-                    last_was_email_char = is_email_char(keyword_buf[keyword_len - 1]);
+                    if (keyword_len > 0) {
+                        last_char = (unsigned char)keyword_buf[keyword_len - 1];
+                    } else {
+                        last_char = 0;
+                    }
                     continue;
                 }
 
-                last_was_email_char = is_email_char(lexer->lookahead);
+                last_char = lexer->lookahead;
                 razor_advance(lexer);
                 has_content = true;
                 has_nonwhitespace = true;
