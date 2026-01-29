@@ -87,6 +87,7 @@ typedef enum {
 typedef struct {
     void *csharp_scanner;
     Array(uint8_t) context_stack;
+    ContextType current_context;
 } RazorScanner;
 
 static inline void razor_advance(TSLexer *lexer) { lexer->advance(lexer, false); }
@@ -94,12 +95,35 @@ static inline void razor_skip(TSLexer *lexer) { lexer->advance(lexer, true); }
 
 static inline bool in_csharp_context(RazorScanner *scanner) {
     if (scanner->context_stack.size == 0) return false;
-    ContextType top = *array_back(&scanner->context_stack);
+    ContextType top = scanner->current_context;
     return top == ContextType_CsharpBrace || top == ContextType_CsharpParen || top == ContextType_CsharpBracket;
 }
 
 static inline bool in_html_tag_context(RazorScanner *scanner) {
-    return scanner->context_stack.size > 0 && *array_back(&scanner->context_stack) == ContextType_HtmlTag;
+    return scanner->context_stack.size > 0 && scanner->current_context == ContextType_HtmlTag;
+}
+
+static inline void context_clear(RazorScanner *scanner) {
+    array_clear(&scanner->context_stack);
+    scanner->current_context = ContextType_Html;
+}
+
+static inline void context_refresh(RazorScanner *scanner) {
+    if (scanner->context_stack.size == 0) {
+        scanner->current_context = ContextType_Html;
+    } else {
+        scanner->current_context = (ContextType)scanner->context_stack.contents[scanner->context_stack.size - 1];
+    }
+}
+
+static inline void context_push(RazorScanner *scanner, ContextType context) {
+    array_push(&scanner->context_stack, (uint8_t)context);
+    scanner->current_context = context;
+}
+
+static inline void context_pop(RazorScanner *scanner) {
+    array_pop(&scanner->context_stack);
+    context_refresh(scanner);
 }
 
 static inline bool is_end_tag_terminator(int32_t c) {
@@ -172,7 +196,7 @@ static bool scan_escapable_raw_text_content(TSLexer *lexer, RazorScanner *scanne
             if (check_closing_tag(lexer, tag_name, tag_len)) {
                 // Matching closing tag - return RazorTokenType_HtmlEndTagOpen
                 if (valid_symbols[RazorTokenType_HtmlEndTagOpen]) {
-                    array_push(&scanner->context_stack, ContextType_HtmlTag);
+                    context_push(scanner, ContextType_HtmlTag);
                     lexer->result_symbol = RazorTokenType_HtmlEndTagOpen;
                     return true;
                 }
@@ -207,7 +231,7 @@ static bool scan_escapable_raw_text_content(TSLexer *lexer, RazorScanner *scanne
             // Start tag inside escapable raw text
             if (lexer->lookahead == '!') razor_advance(lexer);
             lexer->mark_end(lexer);
-            array_push(&scanner->context_stack, ContextType_HtmlTag);
+            context_push(scanner, ContextType_HtmlTag);
             lexer->result_symbol = RazorTokenType_HtmlTagOpen;
             return true;
         }
@@ -536,23 +560,42 @@ static inline bool is_unicode_digit(int32_t c) {
 }
 
 static inline bool is_whitespace(int32_t c) {
-    return c == ' ' || c == '\n' || c == '\r' ||
-           c == '\t' || c == '\v' || c == '\f' ||
-           c == 0x00A0 || c == 0x1680 ||
+    if (c <= 0x20) {
+        return c == ' ' || c == '\n' || c == '\r' ||
+               c == '\t' || c == '\v' || c == '\f';
+    }
+    if (c < 0x80) return false;
+    return c == 0x00A0 || c == 0x1680 ||
            (c >= 0x2000 && c <= 0x200A) ||
            c == 0x202F || c == 0x205F || c == 0x3000;
 }
 
 // Mirrors Razor's HtmlTokenizer heuristic: char.IsLetter/IsDigit.
 static inline bool is_email_char(int32_t c) {
+    if (c < 0x80) {
+        return (c >= 'A' && c <= 'Z') ||
+               (c >= 'a' && c <= 'z') ||
+               (c >= '0' && c <= '9');
+    }
     return is_unicode_letter(c) || is_unicode_digit(c);
 }
 
 static inline bool is_identifier_char(int32_t c) {
+    if (c < 0x80) {
+        return (c >= 'A' && c <= 'Z') ||
+               (c >= 'a' && c <= 'z') ||
+               (c >= '0' && c <= '9') ||
+               c == '_';
+    }
     return is_unicode_letter(c) || is_unicode_digit(c) || c == '_';
 }
 
 static inline bool is_identifier_start(int32_t c) {
+    if (c < 0x80) {
+        return (c >= 'A' && c <= 'Z') ||
+               (c >= 'a' && c <= 'z') ||
+               c == '_';
+    }
     return is_unicode_letter(c) || c == '_';
 }
 
@@ -570,6 +613,39 @@ static inline unsigned varint_len_u32(uint32_t value) {
         len++;
     }
     return len;
+}
+
+static inline bool any_csharp_token_valid(const bool *valid_symbols) {
+    for (unsigned i = 0; i < CSHARP_TOKEN_COUNT; i++) {
+        if (valid_symbols[i]) return true;
+    }
+    return false;
+}
+
+static inline bool is_html_text_run_char(int32_t c, bool in_element) {
+    if (c < 0x80) {
+        switch (c) {
+            case '<':
+            case '[':
+            case '(':
+            case '{':
+            case '}':
+            case '&':
+            case '@':
+            case '\n':
+            case '\r':
+            case ' ':
+            case '\t':
+            case '\v':
+            case '\f':
+                return false;
+            case '.':
+                return in_element;
+            default:
+                return true;
+        }
+    }
+    return !is_whitespace(c);
 }
 
 static unsigned write_varint_u32(char *buffer, unsigned max, uint32_t value) {
@@ -605,6 +681,7 @@ void *tree_sitter_razor_external_scanner_create() {
     RazorScanner *scanner = ts_calloc(1, sizeof(RazorScanner));
     scanner->csharp_scanner = tree_sitter_c_sharp_external_scanner_create();
     array_init(&scanner->context_stack);
+    scanner->current_context = ContextType_Html;
     return scanner;
 }
 
@@ -644,7 +721,7 @@ unsigned tree_sitter_razor_external_scanner_serialize(void *payload, char *buffe
 void tree_sitter_razor_external_scanner_deserialize(void *payload, const char *buffer, unsigned length) {
     RazorScanner *scanner = (RazorScanner *)payload;
 
-    array_clear(&scanner->context_stack);
+    context_clear(scanner);
 
     if (length == 0) {
         tree_sitter_c_sharp_external_scanner_deserialize(scanner->csharp_scanner, buffer, 0);
@@ -693,6 +770,7 @@ void tree_sitter_razor_external_scanner_deserialize(void *payload, const char *b
         }
 
         array_extend(&scanner->context_stack, context_count, (const uint8_t *)&buffer[csharp_size + consumed]);
+        context_refresh(scanner);
     }
 }
 
@@ -704,7 +782,7 @@ bool tree_sitter_razor_external_scanner_scan(void *payload, TSLexer *lexer, cons
                 lexer->lookahead > 31 && lexer->lookahead < 127 ? lexer->lookahead : '?',
                 lexer->lookahead);
     if (scanner->context_stack.size > 0) {
-        DEBUG_PRINT("  top context: %d\n", *array_back(&scanner->context_stack));
+        DEBUG_PRINT("  top context: %d\n", scanner->current_context);
     }
     DEBUG_PRINT("  valid: IMPL_END=%d TEXT_AT=%d HTML_TEXT=%d\n",
                 valid_symbols[RazorTokenType_ImplicitExprEnd], valid_symbols[RazorTokenType_TextWithLiteralAt],
@@ -778,7 +856,7 @@ bool tree_sitter_razor_external_scanner_scan(void *payload, TSLexer *lexer, cons
                 if (valid_symbols[RazorTokenType_ImplicitConditionalBracketOpen]) {
                     razor_advance(lexer);
                     lexer->mark_end(lexer);
-                    array_push(&scanner->context_stack, ContextType_CsharpBracket);
+                    context_push(scanner, ContextType_CsharpBracket);
                     lexer->result_symbol = RazorTokenType_ImplicitConditionalBracketOpen;
                     return true;
                 }
@@ -818,14 +896,14 @@ bool tree_sitter_razor_external_scanner_scan(void *payload, TSLexer *lexer, cons
             if (valid_symbols[RazorTokenType_CsharpCodeBlockStart] && lexer->lookahead == '{') {
                 razor_advance(lexer);
                 lexer->mark_end(lexer);
-                array_push(&scanner->context_stack, ContextType_CsharpBrace);
+                context_push(scanner, ContextType_CsharpBrace);
                 lexer->result_symbol = RazorTokenType_CsharpCodeBlockStart;
                 return true;
             }
             if (valid_symbols[RazorTokenType_CsharpExplicitExprStart] && lexer->lookahead == '(') {
                 razor_advance(lexer);
                 lexer->mark_end(lexer);
-                array_push(&scanner->context_stack, ContextType_CsharpParen);
+                context_push(scanner, ContextType_CsharpParen);
                 lexer->result_symbol = RazorTokenType_CsharpExplicitExprStart;
                 return true;
             }
@@ -908,7 +986,7 @@ bool tree_sitter_razor_external_scanner_scan(void *payload, TSLexer *lexer, cons
                     razor_advance(lexer);
                 }
                 lexer->mark_end(lexer);
-                array_push(&scanner->context_stack, ContextType_HtmlTag);
+                context_push(scanner, ContextType_HtmlTag);
                 lexer->result_symbol = RazorTokenType_HtmlEndTagOpen;
                 return true;
             }
@@ -968,7 +1046,7 @@ bool tree_sitter_razor_external_scanner_scan(void *payload, TSLexer *lexer, cons
                 }
                 if (valid_symbols[RazorTokenType_HtmlTagOpen]) {
                     lexer->mark_end(lexer);
-                    array_push(&scanner->context_stack, ContextType_HtmlTag);
+                    context_push(scanner, ContextType_HtmlTag);
                     lexer->result_symbol = RazorTokenType_HtmlTagOpen;
                     return true;
                 }
@@ -977,7 +1055,7 @@ bool tree_sitter_razor_external_scanner_scan(void *payload, TSLexer *lexer, cons
 
             if (valid_symbols[RazorTokenType_HtmlTagOpen]) {
                 lexer->mark_end(lexer);
-                array_push(&scanner->context_stack, ContextType_HtmlTag);
+                context_push(scanner, ContextType_HtmlTag);
                 lexer->result_symbol = RazorTokenType_HtmlTagOpen;
                 return true;
             }
@@ -992,7 +1070,7 @@ bool tree_sitter_razor_external_scanner_scan(void *payload, TSLexer *lexer, cons
         if (lexer->lookahead == '>') {
             razor_advance(lexer);
             lexer->mark_end(lexer);
-            array_pop(&scanner->context_stack);
+            context_pop(scanner);
             lexer->result_symbol = RazorTokenType_HtmlTagClose;
             return true;
         }
@@ -1019,7 +1097,6 @@ bool tree_sitter_razor_external_scanner_scan(void *payload, TSLexer *lexer, cons
                             last_char = lexer->lookahead;
                             razor_advance(lexer);
                         }
-                        lexer->mark_end(lexer);
                         last_char = 0;
                         continue;
                     }
@@ -1029,13 +1106,10 @@ bool tree_sitter_razor_external_scanner_scan(void *payload, TSLexer *lexer, cons
 
             last_char = lexer->lookahead;
             razor_advance(lexer);
-
-            if (found_literal_at) {
-                lexer->mark_end(lexer);
-            }
         }
 
         if (found_literal_at) {
+            lexer->mark_end(lexer);
             lexer->result_symbol = RazorTokenType_TextWithLiteralAt;
             return true;
         }
@@ -1078,6 +1152,13 @@ bool tree_sitter_razor_external_scanner_scan(void *payload, TSLexer *lexer, cons
     // Note: Works in both HTML and C# context because elements inside Razor blocks need text scanning
     if (valid_symbols[RazorTokenType_HtmlTextContent]) {
         DEBUG_PRINT("  HTML_TEXT: starting, lookahead='%c' (%d)\n", lexer->lookahead, lexer->lookahead);
+        bool keyword_scan_enabled =
+            valid_symbols[RazorTokenType_RazorBlockAt] ||
+            valid_symbols[RazorTokenType_RazorBlockOpen] ||
+            valid_symbols[RazorTokenType_CsharpContextClose] ||
+            valid_symbols[RazorTokenType_CsharpComment] ||
+            valid_symbols[RazorTokenType_TopLevelCsharpComment] ||
+            valid_symbols[RazorTokenType_RazorComment];
         if (lexer->lookahead == '"' || lexer->lookahead == '\'') {
             // Let grammar try string_literal
             DEBUG_PRINT("  HTML_TEXT: quote char, skipping\n");
@@ -1131,8 +1212,9 @@ bool tree_sitter_razor_external_scanner_scan(void *payload, TSLexer *lexer, cons
             }
 
             // Check for C# keywords (else/catch/finally/where) that could continue a statement
-            if (lexer->lookahead == 'e' || lexer->lookahead == 'c' || lexer->lookahead == 'f' ||
-                lexer->lookahead == 'w') {
+            if (keyword_scan_enabled &&
+                (lexer->lookahead == 'e' || lexer->lookahead == 'c' || lexer->lookahead == 'f' ||
+                 lexer->lookahead == 'w')) {
                 // Save position after whitespace (before potential keyword)
                 lexer->mark_end(lexer);
 
@@ -1189,23 +1271,28 @@ bool tree_sitter_razor_external_scanner_scan(void *payload, TSLexer *lexer, cons
             bool has_nonwhitespace = false;
             bool found_keyword = false;
             bool at_line_start = true;
+            bool in_element = valid_symbols[RazorTokenType_HtmlEndTagOpen];
+            bool ended_before_at = false;
 
             int32_t last_char = 0;  // Track previous char for email heuristic
 
             while (!lexer->eof(lexer)) {
-                DEBUG_PRINT("  HTML_TEXT loop: lookahead='%c' (%d), at_line_start=%d\n", lexer->lookahead, lexer->lookahead, at_line_start);
-                if (lexer->lookahead == '<') break;
-                if (lexer->lookahead == '[' || lexer->lookahead == '(' ||
-                    (lexer->lookahead == '.' && !valid_symbols[RazorTokenType_HtmlEndTagOpen])) {
+                int32_t c = lexer->lookahead;
+                DEBUG_PRINT("  HTML_TEXT loop: lookahead='%c' (%d), at_line_start=%d\n", c, c, at_line_start);
+
+                if (c == '<' ||
+                    c == '[' || c == '(' ||
+                    c == '{' || c == '}' ||
+                    c == '&' ||
+                    (c == '.' && !in_element)) {
                     break;
                 }
-                if (lexer->lookahead == '{' || lexer->lookahead == '}') break;
-                if (lexer->lookahead == '&') break;
 
                 // Handle @ - check if it's part of an email address
-                if (lexer->lookahead == '@') {
+                if (c == '@') {
                     if (is_email_char(last_char)) {
                         // Might be email - look ahead to see if followed by identifier
+                        lexer->mark_end(lexer); // End before @ unless confirmed as email
                         razor_advance(lexer);
                         if (is_email_char(lexer->lookahead)) {
                             // It's an email pattern - consume the domain part
@@ -1222,11 +1309,12 @@ bool tree_sitter_razor_external_scanner_scan(void *payload, TSLexer *lexer, cons
                             at_line_start = false;
                             continue;
                         }
+                        ended_before_at = true;
                     }
                     break;  // Not an email - stop before @
                 }
 
-                if (lexer->lookahead == '\n' || lexer->lookahead == '\r') {
+                if (c == '\n' || c == '\r') {
                     razor_advance(lexer);
                     has_content = true;
                     lexer->mark_end(lexer);
@@ -1237,7 +1325,7 @@ bool tree_sitter_razor_external_scanner_scan(void *payload, TSLexer *lexer, cons
 
                 // Whitespace handling: consume and track, but only set has_nonwhitespace
                 // if we've already seen non-whitespace content on this line
-                if (is_whitespace(lexer->lookahead)) {
+                if (is_whitespace(c)) {
                     razor_advance(lexer);
                     has_content = true;
                     // Only set has_nonwhitespace if this is mid-line whitespace (not leading)
@@ -1250,7 +1338,9 @@ bool tree_sitter_razor_external_scanner_scan(void *payload, TSLexer *lexer, cons
                     continue;
                 }
 
-                if (at_line_start && (valid_symbols[RazorTokenType_CsharpComment] || valid_symbols[RazorTokenType_TopLevelCsharpComment]) && lexer->lookahead == '/') {
+                if (at_line_start &&
+                    (valid_symbols[RazorTokenType_CsharpComment] || valid_symbols[RazorTokenType_TopLevelCsharpComment]) &&
+                    c == '/') {
                     break;
                 }
 
@@ -1258,13 +1348,15 @@ bool tree_sitter_razor_external_scanner_scan(void *payload, TSLexer *lexer, cons
                 bool check_keyword = false;
                 char keyword_buf[8] = {0};
                 int keyword_len = 0;
-                int32_t start_char = lexer->lookahead;
+                int32_t start_char = c;
 
-                if (at_line_start && (start_char == 'e' || start_char == 'c' || start_char == 'f')) {
-                    check_keyword = true;
-                }
-                if (start_char == 'w' && !has_nonwhitespace) {
-                    check_keyword = true;
+                if (keyword_scan_enabled) {
+                    if (at_line_start && (start_char == 'e' || start_char == 'c' || start_char == 'f')) {
+                        check_keyword = true;
+                    }
+                    if (start_char == 'w' && !has_nonwhitespace) {
+                        check_keyword = true;
+                    }
                 }
 
                 if (check_keyword) {
@@ -1293,7 +1385,6 @@ bool tree_sitter_razor_external_scanner_scan(void *payload, TSLexer *lexer, cons
 
                     has_content = true;
                     has_nonwhitespace = true;
-                    lexer->mark_end(lexer);
                     at_line_start = false;
                     if (keyword_len > 0) {
                         last_char = (unsigned char)keyword_buf[keyword_len - 1];
@@ -1303,12 +1394,16 @@ bool tree_sitter_razor_external_scanner_scan(void *payload, TSLexer *lexer, cons
                     continue;
                 }
 
-                last_char = lexer->lookahead;
-                razor_advance(lexer);
-                has_content = true;
-                has_nonwhitespace = true;
-                lexer->mark_end(lexer);
-                at_line_start = false;
+                // Fast-path: consume a run of non-special characters
+                do {
+                    last_char = c;
+                    razor_advance(lexer);
+                    has_content = true;
+                    has_nonwhitespace = true;
+                    at_line_start = false;
+                    if (lexer->eof(lexer)) break;
+                    c = lexer->lookahead;
+                } while (is_html_text_run_char(c, in_element));
             }
 
             if (found_keyword) {
@@ -1318,6 +1413,9 @@ bool tree_sitter_razor_external_scanner_scan(void *payload, TSLexer *lexer, cons
 
             if (has_nonwhitespace) {
                 DEBUG_PRINT("  HTML_TEXT returning true (has_nonwhitespace)\n");
+                if (!ended_before_at) {
+                    lexer->mark_end(lexer);
+                }
                 lexer->result_symbol = RazorTokenType_HtmlTextContent;
                 return true;
             } else if (has_content) {
@@ -1332,7 +1430,7 @@ bool tree_sitter_razor_external_scanner_scan(void *payload, TSLexer *lexer, cons
         if (lexer->lookahead == '{') {
             razor_advance(lexer);
             lexer->mark_end(lexer);
-            array_push(&scanner->context_stack, ContextType_CsharpBrace);
+            context_push(scanner, ContextType_CsharpBrace);
             lexer->result_symbol = RazorTokenType_RazorBlockOpen;
             return true;
         }
@@ -1344,7 +1442,7 @@ bool tree_sitter_razor_external_scanner_scan(void *payload, TSLexer *lexer, cons
         if (lexer->lookahead == '(') {
             razor_advance(lexer);
             lexer->mark_end(lexer);
-            array_push(&scanner->context_stack, ContextType_CsharpParen);
+            context_push(scanner, ContextType_CsharpParen);
             lexer->result_symbol = RazorTokenType_ImplicitParenOpen;
             return true;
         }
@@ -1356,7 +1454,7 @@ bool tree_sitter_razor_external_scanner_scan(void *payload, TSLexer *lexer, cons
         if (lexer->lookahead == '[') {
             razor_advance(lexer);
             lexer->mark_end(lexer);
-            array_push(&scanner->context_stack, ContextType_CsharpBracket);
+            context_push(scanner, ContextType_CsharpBracket);
             lexer->result_symbol = RazorTokenType_ImplicitBracketOpen;
             return true;
         }
@@ -1366,13 +1464,13 @@ bool tree_sitter_razor_external_scanner_scan(void *payload, TSLexer *lexer, cons
     if (valid_symbols[RazorTokenType_CsharpContextClose] && scanner->context_stack.size > 0) {
         skip_whitespace(lexer);
 
-        ContextType top = scanner->context_stack.contents[scanner->context_stack.size - 1];
+        ContextType top = scanner->current_context;
         if ((top == ContextType_CsharpBrace && lexer->lookahead == '}') ||
             (top == ContextType_CsharpParen && lexer->lookahead == ')') ||
             (top == ContextType_CsharpBracket && lexer->lookahead == ']')) {
             razor_advance(lexer);
             lexer->mark_end(lexer);
-            array_pop(&scanner->context_stack);
+            context_pop(scanner);
             lexer->result_symbol = RazorTokenType_CsharpContextClose;
             return true;
         }
@@ -1440,5 +1538,8 @@ bool tree_sitter_razor_external_scanner_scan(void *payload, TSLexer *lexer, cons
         }
     }
 
-    return tree_sitter_c_sharp_external_scanner_scan(scanner->csharp_scanner, lexer, valid_symbols);
+    if (any_csharp_token_valid(valid_symbols)) {
+        return tree_sitter_c_sharp_external_scanner_scan(scanner->csharp_scanner, lexer, valid_symbols);
+    }
+    return false;
 }
