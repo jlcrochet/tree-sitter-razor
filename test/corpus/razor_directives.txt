@@ -259,3 +259,13 @@ TagHelperPrefix directive
 (compilation_unit
   (razor_taghelperprefix_directive
     prefix: (tag_helper_prefix)))
+
+================================================================================
+Rendermode directive
+================================================================================
+@rendermode InteractiveServer
+--------------------------------------------------------------------------------
+
+(compilation_unit
+  (razor_rendermode_directive
+    (identifier)))

@@ -88,15 +88,15 @@ else
               (tag_name))
             (text)
             (end_tag
-              (tag_name))))
-        alternative: (else_clause
-          (razor_block
-            (element
-              (start_tag
-                (tag_name))
-              (text)
-              (end_tag
-                (tag_name)))))))))
+              (tag_name)))))
+      alternative: (else_clause
+        (razor_block
+          (element
+            (start_tag
+              (tag_name))
+            (text)
+            (end_tag
+              (tag_name))))))))
 
 ================================================================================
 Foreach loop

@@ -211,13 +211,11 @@ module.exports = grammar(csharp, {
       field('condition', $.expression),
       alias($._csharp_context_close, ')'),
       field('consequence', $.razor_block),
-      optional(field('alternative', choice(
-        $.razor_else_if_clause,
-        alias($.razor_else_clause, $.else_clause),
-      ))),
+      repeat(field('alternative', $.razor_else_if_clause)),
+      optional(field('alternative', alias($.razor_else_clause, $.else_clause))),
     ),
 
-    razor_else_if_clause: $ => prec.right(seq(
+    razor_else_if_clause: $ => seq(
       repeat($._razor_clause_comment),
       'else',
       'if',
@@ -225,11 +223,7 @@ module.exports = grammar(csharp, {
       field('condition', $.expression),
       alias($._csharp_context_close, ')'),
       field('consequence', $.razor_block),
-      optional(field('alternative', choice(
-        $.razor_else_if_clause,
-        alias($.razor_else_clause, $.else_clause),
-      ))),
-    )),
+    ),
 
     razor_else_clause: $ => seq(
       repeat($._razor_clause_comment),

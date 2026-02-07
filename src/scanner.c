@@ -122,6 +122,7 @@ static inline void context_push(RazorScanner *scanner, ContextType context) {
 }
 
 static inline void context_pop(RazorScanner *scanner) {
+    assert(scanner->context_stack.size > 0);
     array_pop(&scanner->context_stack);
     context_refresh(scanner);
 }
@@ -606,6 +607,30 @@ static inline void skip_whitespace(TSLexer *lexer) {
     }
 }
 
+// Read identifier characters into buf (up to max_len chars). Returns count read.
+static inline int scan_keyword_into_buf(TSLexer *lexer, char *buf, int max_len) {
+    int len = 0;
+    while (len < max_len && !lexer->eof(lexer) && is_identifier_char(lexer->lookahead)) {
+        buf[len++] = (char)lexer->lookahead;
+        razor_advance(lexer);
+    }
+    buf[len] = '\0';
+    return len;
+}
+
+// Check if buf contains a C# continuation keyword.
+// at_line_start controls whether else/catch/finally are checked (they only
+// continue a prior statement when at line start). "where" is always checked.
+static inline bool is_continuation_keyword(const char *buf, int len, bool at_line_start) {
+    if (at_line_start) {
+        if (len == 4 && memcmp(buf, "else", 4) == 0) return true;
+        if (len == 5 && memcmp(buf, "catch", 5) == 0) return true;
+        if (len == 7 && memcmp(buf, "finally", 7) == 0) return true;
+    }
+    if (len == 5 && memcmp(buf, "where", 5) == 0) return true;
+    return false;
+}
+
 static inline unsigned varint_len_u32(uint32_t value) {
     unsigned len = 1;
     while (value >= 0x80) {
@@ -770,6 +795,16 @@ void tree_sitter_razor_external_scanner_deserialize(void *payload, const char *b
         }
 
         array_extend(&scanner->context_stack, context_count, (const uint8_t *)&buffer[csharp_size + consumed]);
+
+        // Validate that all deserialized context values are valid enum values
+        for (uint32_t i = 0; i < context_count; i++) {
+            if (scanner->context_stack.contents[scanner->context_stack.size - context_count + i] > ContextType_CsharpBracket) {
+                assert(false && "Corrupted serialization: invalid context type");
+                context_clear(scanner);
+                return;
+            }
+        }
+
         context_refresh(scanner);
     }
 }
@@ -1219,23 +1254,14 @@ bool tree_sitter_razor_external_scanner_scan(void *payload, TSLexer *lexer, cons
                 lexer->mark_end(lexer);
 
                 char keyword_buf[8] = {0};
-                int keyword_len = 0;
-                while (keyword_len < 7 && !lexer->eof(lexer) && is_identifier_char(lexer->lookahead)) {
-                    keyword_buf[keyword_len++] = (char)lexer->lookahead;
-                    razor_advance(lexer);
-                }
-                keyword_buf[keyword_len] = '\0';
+                int keyword_len = scan_keyword_into_buf(lexer, keyword_buf, 7);
 
-                if (!is_identifier_char(lexer->lookahead)) {
-                    if ((keyword_len == 4 && memcmp(keyword_buf, "else", 4) == 0) ||
-                        (keyword_len == 5 && memcmp(keyword_buf, "catch", 5) == 0) ||
-                        (keyword_len == 7 && memcmp(keyword_buf, "finally", 7) == 0) ||
-                        (keyword_len == 5 && memcmp(keyword_buf, "where", 5) == 0)) {
-                        // Keyword found - return false so grammar can match the keyword
-                        // Note: whitespace is NOT returned as text; it's skipped as formatting
-                        DEBUG_PRINT("  HTML_TEXT: whitespace then keyword %s, skipping\n", keyword_buf);
-                        return false;
-                    }
+                if ((lexer->eof(lexer) || !is_identifier_char(lexer->lookahead)) &&
+                    is_continuation_keyword(keyword_buf, keyword_len, true)) {
+                    // Keyword found - return false so grammar can match the keyword
+                    // Note: whitespace is NOT returned as text; it's skipped as formatting
+                    DEBUG_PRINT("  HTML_TEXT: whitespace then keyword %s, skipping\n", keyword_buf);
+                    return false;
                 }
 
                 // Not a keyword - return whitespace + word as text
@@ -1272,7 +1298,7 @@ bool tree_sitter_razor_external_scanner_scan(void *payload, TSLexer *lexer, cons
             bool found_keyword = false;
             bool at_line_start = true;
             bool in_element = valid_symbols[RazorTokenType_HtmlEndTagOpen];
-            bool ended_before_at = false;
+            bool end_already_marked = false;
 
             int32_t last_char = 0;  // Track previous char for email heuristic
 
@@ -1309,7 +1335,7 @@ bool tree_sitter_razor_external_scanner_scan(void *payload, TSLexer *lexer, cons
                             at_line_start = false;
                             continue;
                         }
-                        ended_before_at = true;
+                        end_already_marked = true;
                     }
                     break;  // Not an email - stop before @
                 }
@@ -1361,23 +1387,10 @@ bool tree_sitter_razor_external_scanner_scan(void *payload, TSLexer *lexer, cons
 
                 if (check_keyword) {
                     lexer->mark_end(lexer);
-                    while (keyword_len < 7 && !lexer->eof(lexer) && is_identifier_char(lexer->lookahead)) {
-                        keyword_buf[keyword_len++] = (char)lexer->lookahead;
-                        razor_advance(lexer);
-                    }
-                    keyword_buf[keyword_len] = '\0';
+                    keyword_len = scan_keyword_into_buf(lexer, keyword_buf, 7);
 
-                    bool is_keyword = false;
-                    if (lexer->eof(lexer) || !is_identifier_char(lexer->lookahead)) {
-                        if (at_line_start) {
-                            if (keyword_len == 4 && memcmp(keyword_buf, "else", 4) == 0) is_keyword = true;
-                            else if (keyword_len == 5 && memcmp(keyword_buf, "catch", 5) == 0) is_keyword = true;
-                            else if (keyword_len == 7 && memcmp(keyword_buf, "finally", 7) == 0) is_keyword = true;
-                        }
-                        if (keyword_len == 5 && memcmp(keyword_buf, "where", 5) == 0) is_keyword = true;
-                    }
-
-                    if (is_keyword) {
+                    if ((lexer->eof(lexer) || !is_identifier_char(lexer->lookahead)) &&
+                        is_continuation_keyword(keyword_buf, keyword_len, at_line_start)) {
                         DEBUG_PRINT("  Found keyword: %s\n", keyword_buf);
                         found_keyword = true;
                         break;
@@ -1413,7 +1426,7 @@ bool tree_sitter_razor_external_scanner_scan(void *payload, TSLexer *lexer, cons
 
             if (has_nonwhitespace) {
                 DEBUG_PRINT("  HTML_TEXT returning true (has_nonwhitespace)\n");
-                if (!ended_before_at) {
+                if (!end_already_marked) {
                     lexer->mark_end(lexer);
                 }
                 lexer->result_symbol = RazorTokenType_HtmlTextContent;
