@@ -20,6 +20,45 @@ Model directive
     (identifier)))
 
 ================================================================================
+Model directive followed by a code block
+================================================================================
+@model ErrorModel
+@{
+  ViewData["Title"] = "Error";
+}
+--------------------------------------------------------------------------------
+
+(compilation_unit
+  (razor_model_directive
+    (identifier))
+  (razor_code_block
+    (expression_statement
+      (assignment_expression
+        (element_access_expression
+          (identifier)
+          (bracketed_argument_list
+            (argument
+              (string_literal
+                (string_literal_content)))))
+        (string_literal
+          (string_literal_content))))))
+
+================================================================================
+Model directive followed by an explicit expression
+================================================================================
+@model ErrorModel
+  @(Model.Message)
+--------------------------------------------------------------------------------
+
+(compilation_unit
+  (razor_model_directive
+    (identifier))
+  (razor_explicit_expression
+    (member_access_expression
+      (identifier)
+      (identifier))))
+
+================================================================================
 Using directive
 ================================================================================
 @using System.Collections.Generic

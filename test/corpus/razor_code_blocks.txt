@@ -1,4 +1,52 @@
 ================================================================================
+Code block with leading whitespace
+================================================================================
+
+  @{
+    var message = "Hello";
+}
+--------------------------------------------------------------------------------
+
+(compilation_unit
+  (razor_code_block
+    (local_declaration_statement
+      (variable_declaration
+        (implicit_type)
+        (variable_declarator
+          (identifier)
+          (string_literal
+            (string_literal_content)))))))
+
+================================================================================
+Whitespace before code and expressions inside an element
+================================================================================
+<div>
+  @{ var message = "Hello"; }
+  @(message)
+</div>
+--------------------------------------------------------------------------------
+
+(compilation_unit
+  (element
+    (start_tag
+      (tag_name))
+    (text)
+    (razor_code_block
+      (local_declaration_statement
+        (variable_declaration
+          (implicit_type)
+          (variable_declarator
+            (identifier)
+            (string_literal
+              (string_literal_content))))))
+    (text)
+    (razor_explicit_expression
+      (identifier))
+    (text)
+    (end_tag
+      (tag_name))))
+
+================================================================================
 Simple code block
 ================================================================================
 @{

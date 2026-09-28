@@ -912,9 +912,11 @@ bool tree_sitter_razor_external_scanner_scan(void *payload, TSLexer *lexer, cons
 
     DEBUG_PRINT("  check_at_tokens=%d, lookahead='%c'\n", check_at_tokens, lexer->lookahead);
     if (check_at_tokens) {
-        // Don't skip whitespace if we're inside text content (HTML, title, or textarea)
-        // as that whitespace should be captured as part of the content
-        if (!valid_symbols[RazorTokenType_HtmlTextContent] && !valid_symbols[RazorTokenType_TitleContent] && !valid_symbols[RazorTokenType_TextareaContent]) {
+        // Preserve whitespace inside elements, where it is part of the text.
+        // At top level, skip it so @{ and @( are recognized before the
+        // internal lexer skips extras and consumes @ as a separate token.
+        if (!(valid_symbols[RazorTokenType_HtmlTextContent] && valid_symbols[RazorTokenType_HtmlEndTagOpen]) &&
+            !valid_symbols[RazorTokenType_TitleContent] && !valid_symbols[RazorTokenType_TextareaContent]) {
             while (is_whitespace(lexer->lookahead)) {
                 DEBUG_PRINT("  Skipping whitespace in check_at_tokens\n");
                 razor_skip(lexer);
